@@ -84,7 +84,7 @@ describe('finance engine', () => {
 
   it('uses pension cashflows and age-gated assets in retirement readiness bridge simulation', () => {
     const pensions: PensionCashflow[] = [
-      { id: 'national', name: '국민연금', startAge: 65, monthlyAmount: 1_200_000, reliability: 1 },
+      { id: 'national', name: '국민연금', kind: 'pension', startAge: 65, monthlyAmount: 1_200_000, reliability: 1 },
     ]
 
     const result = calculateRetirementReadiness({
@@ -105,6 +105,30 @@ describe('finance engine', () => {
     expect(result.lockedAtRetirement).toBe(240_000_000)
     expect(result.points.find((point) => point.age === 55)?.unlockedFromAssets).toBe(240_000_000)
     expect(result.points.find((point) => point.age === 65)?.pensionIncome).toBe(14_400_000)
+  })
+
+  it('combines multiple retirement income cashflows and stops temporary income after end age', () => {
+    const incomes: PensionCashflow[] = [
+      { id: 'national', name: '국민연금', kind: 'pension', startAge: 65, monthlyAmount: 1_200_000, reliability: 1 },
+      { id: 'rent', name: '월세', kind: 'rental', startAge: 50, monthlyAmount: 800_000, reliability: 0.9 },
+      { id: 'consulting', name: '자문료', kind: 'passive_income', startAge: 50, endAge: 59, monthlyAmount: 500_000, reliability: 1 },
+    ]
+
+    const result = calculateRetirementReadiness({
+      currentAge: 50,
+      retirementAge: 50,
+      retirementYears: 16,
+      monthlyRetirementExpense: 4_000_000,
+      annualReturn: 0,
+      assets: [
+        { id: 'taxable', name: '일반 투자자산', type: 'stock', value: 600_000_000, liquidity: 'high', includeForFi: true },
+      ],
+      pensions: incomes,
+    })
+
+    expect(result.points.find((point) => point.age === 55)?.pensionIncome).toBe(14_640_000)
+    expect(result.points.find((point) => point.age === 60)?.pensionIncome).toBe(8_640_000)
+    expect(result.points.find((point) => point.age === 65)?.pensionIncome).toBe(23_040_000)
   })
 
   it('calculates savings rate safely', () => {

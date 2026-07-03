@@ -17,6 +17,7 @@ export type Asset = {
 export type PensionCashflow = {
   id: string
   name: string
+  kind?: 'pension' | 'rental' | 'passive_income' | 'temporary_income' | 'other'
   /** Age when monthly pension/income starts. */
   startAge: number
   /** Optional final age. Undefined means lifetime/indefinite. */

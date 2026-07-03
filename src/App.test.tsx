@@ -78,7 +78,7 @@ describe('EconomicFreedomSimulator app', () => {
     const user = userEvent.setup()
     render(<App />)
 
-    expect(screen.getByText('연금/현금흐름')).toBeInTheDocument()
+    expect(screen.getByText('은퇴 후 소득/현금흐름')).toBeInTheDocument()
     expect(screen.getByText('55세 이후 사용가능 자산')).toBeInTheDocument()
     expect(screen.getByText('잠긴 FI 자산 ₩80,000,000')).toBeInTheDocument()
     expect(screen.getByText('국민연금')).toBeInTheDocument()
@@ -86,7 +86,33 @@ describe('EconomicFreedomSimulator app', () => {
     await user.clear(screen.getByLabelText('국민연금 월 수령액'))
     await user.type(screen.getByLabelText('국민연금 월 수령액'), '1,500,000')
 
-    expect(screen.getByText('연금 시작 후 월 부족액')).toBeInTheDocument()
+    expect(screen.getByText('총 월 소득')).toBeInTheDocument()
+    expect(screen.getByText('₩1,500,000')).toBeInTheDocument()
+    expect(screen.getByText('월 부족액')).toBeInTheDocument()
     expect(screen.getByText('₩2,500,000')).toBeInTheDocument()
+  })
+
+  it('can add multiple retirement income cashflows including rental income with an end age', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    await user.click(screen.getByRole('button', { name: '소득 추가' }))
+    expect(screen.getAllByText('월세/임대소득').length).toBeGreaterThan(0)
+
+    const cashflowPanel = screen.getByTestId('cashflow-list')
+    const incomeNameInputs = within(cashflowPanel).getAllByLabelText('소득명')
+    await user.clear(incomeNameInputs.at(-1)!)
+    await user.type(incomeNameInputs.at(-1)!, '오피스텔 월세')
+
+    const incomeAmountInputs = within(cashflowPanel).getAllByLabelText(/월 수령액/)
+    await user.clear(incomeAmountInputs.at(-1)!)
+    await user.type(incomeAmountInputs.at(-1)!, '800,000')
+
+    const endAgeInputs = within(cashflowPanel).getAllByLabelText('종료 나이')
+    await user.type(endAgeInputs.at(-1)!, '75')
+
+    expect(screen.getByText('오피스텔 월세')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('75')).toBeInTheDocument()
+    expect(screen.getAllByText('₩2,000,000').length).toBeGreaterThanOrEqual(2)
   })
 })

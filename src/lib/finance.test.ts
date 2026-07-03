@@ -2,13 +2,16 @@ import { describe, expect, it } from 'vitest'
 import {
   calculateFiNumber,
   calculateNetWorth,
+  calculateRetirementReadiness,
   calculateSavingsRate,
+  calculateUnlockedFiAssets,
   calculateYearsToFi,
   createYearlyProjection,
   getSensitivityMatrix,
   simulateRetirementDrawdown,
   toMonthlyRate,
   toRealReturn,
+  type PensionCashflow,
   type SimulationInput,
 } from './finance'
 
@@ -62,6 +65,46 @@ describe('finance engine', () => {
     const risky = simulateRetirementDrawdown({ startingBalance: 500_000_000, annualExpense: 60_000_000, annualReturn: 0.01, years: 50 })
     expect(risky.success).toBe(false)
     expect(risky.depletedYear).toBeGreaterThan(0)
+  })
+
+  it('separates FI assets that are locked until a future age such as 55', () => {
+    const result = calculateUnlockedFiAssets({
+      currentAge: 45,
+      assets: [
+        { id: 'taxable', name: '과세계좌', type: 'stock', value: 300_000_000, liquidity: 'high', includeForFi: true },
+        { id: 'irp', name: 'IRP', type: 'pension', value: 100_000_000, liquidity: 'medium', includeForFi: true, availableAge: 55 },
+        { id: 'home', name: '거주 주택', type: 'real_estate', value: 700_000_000, liquidity: 'low', includeForFi: false },
+      ],
+    })
+
+    expect(result.unlockedFiAssets).toBe(300_000_000)
+    expect(result.lockedFiAssets).toBe(100_000_000)
+    expect(result.nextUnlockAge).toBe(55)
+  })
+
+  it('uses pension cashflows and age-gated assets in retirement readiness bridge simulation', () => {
+    const pensions: PensionCashflow[] = [
+      { id: 'national', name: '국민연금', startAge: 65, monthlyAmount: 1_200_000, reliability: 1 },
+    ]
+
+    const result = calculateRetirementReadiness({
+      currentAge: 50,
+      retirementAge: 50,
+      retirementYears: 16,
+      monthlyRetirementExpense: 4_000_000,
+      annualReturn: 0,
+      assets: [
+        { id: 'taxable', name: '일반 투자자산', type: 'stock', value: 600_000_000, liquidity: 'high', includeForFi: true },
+        { id: 'irp', name: '55세 이후 사용가능 IRP', type: 'pension', value: 240_000_000, liquidity: 'medium', includeForFi: true, availableAge: 55 },
+      ],
+      pensions,
+    })
+
+    expect(result.success).toBe(true)
+    expect(result.unlockedAtRetirement).toBe(600_000_000)
+    expect(result.lockedAtRetirement).toBe(240_000_000)
+    expect(result.points.find((point) => point.age === 55)?.unlockedFromAssets).toBe(240_000_000)
+    expect(result.points.find((point) => point.age === 65)?.pensionIncome).toBe(14_400_000)
   })
 
   it('calculates savings rate safely', () => {

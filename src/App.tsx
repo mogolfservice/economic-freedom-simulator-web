@@ -3,14 +3,16 @@ import './App.css'
 import {
   calculateFiNumber,
   calculateNetWorth,
+  calculateRetirementReadiness,
   calculateSavingsRate,
+  calculateUnlockedFiAssets,
   calculateYearsToFi,
   createYearlyProjection,
   getSensitivityMatrix,
-  simulateRetirementDrawdown,
   toRealReturn,
   type Asset,
   type Liability,
+  type PensionCashflow,
   type SensitivityCase,
 } from './lib/finance'
 
@@ -28,6 +30,7 @@ type PlannerState = {
   retirementYears: number
   assets: Asset[]
   liabilities: Liability[]
+  pensions: PensionCashflow[]
 }
 
 type SavedScenario = {
@@ -128,10 +131,14 @@ const defaultState: PlannerState = {
   assets: [
     { id: 'cash', name: '현금/예금', type: 'cash', value: 100_000_000, liquidity: 'high', includeForFi: true },
     { id: 'stock', name: 'ETF/주식', type: 'stock', value: 400_000_000, liquidity: 'high', includeForFi: true },
+    { id: 'irp', name: 'IRP/퇴직연금', type: 'pension', value: 80_000_000, liquidity: 'medium', includeForFi: true, availableAge: 55 },
     { id: 'home', name: '거주 부동산', type: 'real_estate', value: 700_000_000, liquidity: 'low', includeForFi: false },
   ],
   liabilities: [
     { id: 'mortgage', name: '주택담보대출', type: 'mortgage', balance: 250_000_000, interestRate: 0.04, monthlyPayment: 1_500_000 },
+  ],
+  pensions: [
+    { id: 'national-pension', name: '국민연금', startAge: 65, monthlyAmount: 1_200_000, reliability: 1 },
   ],
 }
 
@@ -187,19 +194,21 @@ function App() {
 
   const realReturn = useMemo(() => toRealReturn(state.nominalReturn, state.inflationRate), [state.nominalReturn, state.inflationRate])
   const netWorth = useMemo(() => calculateNetWorth({ assets: state.assets, liabilities: state.liabilities }), [state.assets, state.liabilities])
+  const access = useMemo(() => calculateUnlockedFiAssets({ assets: state.assets, currentAge: state.currentAge }), [state.assets, state.currentAge])
   const fiNumber = useMemo(() => calculateFiNumber(state.monthlyRetirementExpense, state.safeWithdrawalRate), [state.monthlyRetirementExpense, state.safeWithdrawalRate])
-  const yearsToFi = useMemo(() => calculateYearsToFi({ currentFiAssets: netWorth.fiAssets, annualContribution: state.monthlyContribution * 12, annualReturn: realReturn, fiNumber }), [fiNumber, netWorth.fiAssets, realReturn, state.monthlyContribution])
+  const yearsToFi = useMemo(() => calculateYearsToFi({ currentFiAssets: access.unlockedFiAssets, annualContribution: state.monthlyContribution * 12, annualReturn: realReturn, fiNumber }), [fiNumber, access.unlockedFiAssets, realReturn, state.monthlyContribution])
   const retirementYear = yearsToFi === null ? null : START_YEAR + yearsToFi
-  const progress = fiNumber > 0 ? netWorth.fiAssets / fiNumber : 1
-  const projection = useMemo(() => createYearlyProjection({ currentFiAssets: netWorth.fiAssets, annualContribution: state.monthlyContribution * 12, annualReturn: realReturn, fiNumber, startYear: START_YEAR }), [fiNumber, netWorth.fiAssets, realReturn, state.monthlyContribution])
-  const drawdown = useMemo(() => simulateRetirementDrawdown({ startingBalance: Math.max(netWorth.fiAssets, fiNumber), annualExpense: state.monthlyRetirementExpense * 12, annualReturn: realReturn, years: state.retirementYears }), [fiNumber, netWorth.fiAssets, realReturn, state.monthlyRetirementExpense, state.retirementYears])
-  const sensitivity = useMemo(() => getSensitivityMatrix({ currentFiAssets: netWorth.fiAssets, monthlyContribution: state.monthlyContribution, monthlyRetirementExpense: state.monthlyRetirementExpense, annualReturn: realReturn, safeWithdrawalRate: state.safeWithdrawalRate, startYear: START_YEAR, retirementYears: state.retirementYears }), [netWorth.fiAssets, realReturn, state.monthlyContribution, state.monthlyRetirementExpense, state.retirementYears, state.safeWithdrawalRate])
+  const progress = fiNumber > 0 ? access.unlockedFiAssets / fiNumber : 1
+  const projection = useMemo(() => createYearlyProjection({ currentFiAssets: access.unlockedFiAssets, annualContribution: state.monthlyContribution * 12, annualReturn: realReturn, fiNumber, startYear: START_YEAR }), [fiNumber, access.unlockedFiAssets, realReturn, state.monthlyContribution])
+  const readiness = useMemo(() => calculateRetirementReadiness({ currentAge: state.currentAge, retirementAge: state.currentAge + (yearsToFi ?? 0), retirementYears: state.retirementYears, monthlyRetirementExpense: state.monthlyRetirementExpense, annualReturn: realReturn, assets: state.assets, pensions: state.pensions }), [realReturn, state.assets, state.currentAge, state.monthlyRetirementExpense, state.pensions, state.retirementYears, yearsToFi])
+  const sensitivity = useMemo(() => getSensitivityMatrix({ currentFiAssets: access.unlockedFiAssets, monthlyContribution: state.monthlyContribution, monthlyRetirementExpense: state.monthlyRetirementExpense, annualReturn: realReturn, safeWithdrawalRate: state.safeWithdrawalRate, startYear: START_YEAR, retirementYears: state.retirementYears }), [access.unlockedFiAssets, realReturn, state.monthlyContribution, state.monthlyRetirementExpense, state.retirementYears, state.safeWithdrawalRate])
   const savingsRate = calculateSavingsRate(state.monthlyIncome, state.monthlyContribution)
   const statusTone = progress >= 1 ? 'good' : yearsToFi !== null && yearsToFi <= 10 ? 'warn' : 'default'
 
   const updateNumber = (field: keyof PlannerState, value: number) => setState((current) => ({ ...current, [field]: value }))
   const updatePercent = (field: keyof PlannerState, value: string) => setState((current) => ({ ...current, [field]: parseNumber(value) / 100 }))
   const updateAsset = (id: string, patch: Partial<Asset>) => setState((current) => ({ ...current, assets: current.assets.map((asset) => asset.id === id ? { ...asset, ...patch } : asset) }))
+  const updatePension = (id: string, patch: Partial<PensionCashflow>) => setState((current) => ({ ...current, pensions: current.pensions.map((pension) => pension.id === id ? { ...pension, ...patch } : pension) }))
   const addAsset = () => setState((current) => ({ ...current, assets: [...current.assets, { id: `asset-${Date.now()}`, name: t.newAsset, type: 'fund', value: 0, liquidity: 'high', includeForFi: true }] }))
   const saveScenario = () => { const next = { id: `scenario-${Date.now()}`, savedAt: new Date().toLocaleString(t.locale), yearsToFi, retirementYear, fiNumber, progress, state }; const scenarios = [next, ...savedScenarios].slice(0, 6); localStorage.setItem(STORAGE_KEY, JSON.stringify(scenarios)); setSavedScenarios(scenarios) }
 
@@ -218,15 +227,17 @@ function App() {
 
       <section className="metrics-grid" aria-label={t.metricsLabel}>
         <MetricCard label={t.fiAssets} value={formatMoney(fiNumber)} note={`${t.monthly} ${formatMoney(state.monthlyRetirementExpense)} · SWR ${formatPercent(state.safeWithdrawalRate)}`} tone={statusTone} />
-        <MetricCard label={t.progress} value={formatPercent(progress)} note={`${t.fiAssetNote} ${formatMoney(netWorth.fiAssets)}`} />
+        <MetricCard label={t.progress} value={formatPercent(progress)} note={`현재 사용가능 FI 자산 ${formatMoney(access.unlockedFiAssets)}`} />
         <MetricCard label={t.savingsRate} value={formatPercent(savingsRate)} note={`${t.monthlySaving} ${formatMoney(state.monthlyContribution)}`} />
-        <MetricCard label={t.stability} value={drawdown.success ? t.passed : t.caution} note={drawdown.success ? t.yearsDrawdown(state.retirementYears) : t.depleted(drawdown.depletedYear)} tone={drawdown.success ? 'good' : 'warn'} />
+        <MetricCard label={t.stability} value={readiness.success ? t.passed : t.caution} note={readiness.success ? `연금·잠긴자산 반영 ${state.retirementYears}년 통과` : `${readiness.depletedAge}세 고갈 가능`} tone={readiness.success ? 'good' : 'warn'} />
       </section>
 
-      <div className="workspace"><section className="panel input-panel"><div className="section-title"><p className="eyebrow">{t.inputs}</p><h2>{t.quickInputs}</h2></div><div className="form-grid"><MoneyInput label={t.monthlyIncome} value={state.monthlyIncome} onValueChange={(value) => updateNumber('monthlyIncome', value)} /><MoneyInput label={t.monthlyContribution} value={state.monthlyContribution} onValueChange={(value) => updateNumber('monthlyContribution', value)} /><MoneyInput label={t.monthlyExpense} value={state.monthlyRetirementExpense} onValueChange={(value) => updateNumber('monthlyRetirementExpense', value)} /><label>{t.nominalReturn}<input aria-label={t.nominalReturn.replace(' (%)', '')} type="number" step="0.1" value={(state.nominalReturn * 100).toFixed(1)} onChange={(event) => updatePercent('nominalReturn', event.target.value)} /></label><label>{t.inflation}<input aria-label={t.inflation.replace(' (%)', '')} type="number" step="0.1" value={(state.inflationRate * 100).toFixed(1)} onChange={(event) => updatePercent('inflationRate', event.target.value)} /></label><label>{t.safeWithdrawalRate}<input aria-label={t.safeWithdrawalRate.replace(' (%)', '')} type="number" step="0.1" value={(state.safeWithdrawalRate * 100).toFixed(1)} onChange={(event) => updatePercent('safeWithdrawalRate', event.target.value)} /></label></div><div className="assumption-strip"><span>{t.realReturn}<strong>{formatPercent(realReturn)}</strong></span><span>{t.netWorth}<strong>{formatMoney(netWorth.netWorth)}</strong></span><span>{t.liabilities}<strong>{formatMoney(netWorth.totalLiabilities)}</strong></span></div></section>
+      <div className="workspace"><section className="panel input-panel"><div className="section-title"><p className="eyebrow">{t.inputs}</p><h2>{t.quickInputs}</h2></div><div className="form-grid"><label>현재 나이<input aria-label="현재 나이" type="number" value={state.currentAge} onChange={(event) => updateNumber('currentAge', parseNumber(event.target.value))} /></label><MoneyInput label={t.monthlyIncome} value={state.monthlyIncome} onValueChange={(value) => updateNumber('monthlyIncome', value)} /><MoneyInput label={t.monthlyContribution} value={state.monthlyContribution} onValueChange={(value) => updateNumber('monthlyContribution', value)} /><MoneyInput label={t.monthlyExpense} value={state.monthlyRetirementExpense} onValueChange={(value) => updateNumber('monthlyRetirementExpense', value)} /><label>{t.nominalReturn}<input aria-label={t.nominalReturn.replace(' (%)', '')} type="number" step="0.1" value={(state.nominalReturn * 100).toFixed(1)} onChange={(event) => updatePercent('nominalReturn', event.target.value)} /></label><label>{t.inflation}<input aria-label={t.inflation.replace(' (%)', '')} type="number" step="0.1" value={(state.inflationRate * 100).toFixed(1)} onChange={(event) => updatePercent('inflationRate', event.target.value)} /></label><label>{t.safeWithdrawalRate}<input aria-label={t.safeWithdrawalRate.replace(' (%)', '')} type="number" step="0.1" value={(state.safeWithdrawalRate * 100).toFixed(1)} onChange={(event) => updatePercent('safeWithdrawalRate', event.target.value)} /></label></div><div className="assumption-strip"><span>{t.realReturn}<strong>{formatPercent(realReturn)}</strong></span><span>{t.netWorth}<strong>{formatMoney(netWorth.netWorth)}</strong></span><span>{t.liabilities}<strong>{formatMoney(netWorth.totalLiabilities)}</strong></span></div></section>
         <section className="panel chart-panel"><div className="section-title row-title"><div><p className="eyebrow">{t.projection}</p><h2>{t.growthPath}</h2></div><button type="button" onClick={saveScenario}>{t.saveScenario}</button></div><MiniLineChart data={projection} target={fiNumber} targetLabel={`${t.targetPrefix} ${formatMoney(fiNumber)}`} ariaLabel={t.chartAria} /><p className="chart-note">{t.chartNote}</p></section></div>
 
-      <section className="panel assets-panel"><div className="section-title row-title"><div><p className="eyebrow">{t.assets}</p><h2>{t.assetInput}</h2></div><button type="button" onClick={addAsset}>{t.addAsset}</button></div><div className="asset-list" data-testid="asset-list">{state.assets.map((asset) => <article className="asset-row" key={asset.id}><label>{t.assetName}<input aria-label={t.assetName} value={asset.name} onChange={(event) => updateAsset(asset.id, { name: event.target.value })} /></label><MoneyInput label={t.assetValue} value={asset.value} onValueChange={(value) => updateAsset(asset.id, { value })} /><label className="check-label"><input type="checkbox" checked={asset.includeForFi} onChange={(event) => updateAsset(asset.id, { includeForFi: event.target.checked })} />{t.includeForFi}</label><span className={`liquidity ${asset.liquidity}`}>{asset.liquidity === 'high' ? t.high : asset.liquidity === 'medium' ? t.medium : t.low}</span></article>)}</div></section>
+      <section className="panel assets-panel"><div className="section-title row-title"><div><p className="eyebrow">{t.assets}</p><h2>{t.assetInput}</h2></div><button type="button" onClick={addAsset}>{t.addAsset}</button></div><div className="asset-summary"><strong>55세 이후 사용가능 자산</strong><span>잠긴 FI 자산 {formatMoney(access.lockedFiAssets)}</span><small>{access.nextUnlockAge === null ? '잠긴 자산 없음' : `${access.nextUnlockAge}세부터 순차적으로 은퇴 인출 재원에 합산됩니다.`}</small></div><div className="asset-list" data-testid="asset-list">{state.assets.map((asset) => <article className="asset-row" key={asset.id}><label>{t.assetName}<input aria-label={t.assetName} value={asset.name} onChange={(event) => updateAsset(asset.id, { name: event.target.value })} /></label><MoneyInput label={t.assetValue} value={asset.value} onValueChange={(value) => updateAsset(asset.id, { value })} /><label>사용 가능 나이<input aria-label="사용 가능 나이" type="number" value={asset.availableAge ?? ''} placeholder="현재" onChange={(event) => updateAsset(asset.id, { availableAge: event.target.value === '' ? undefined : parseNumber(event.target.value) })} /></label><label className="check-label"><input type="checkbox" checked={asset.includeForFi} onChange={(event) => updateAsset(asset.id, { includeForFi: event.target.checked })} />{t.includeForFi}</label><span className={`liquidity ${asset.liquidity}`}>{asset.liquidity === 'high' ? t.high : asset.liquidity === 'medium' ? t.medium : t.low}</span></article>)}</div></section>
+
+      <section className="panel pension-panel"><div className="section-title"><p className="eyebrow">Cashflows</p><h2>연금/현금흐름</h2></div><div className="asset-list">{state.pensions.map((pension) => <article className="asset-row pension-row" key={pension.id}><strong>{pension.name}</strong><label>연금명<input aria-label="연금명" value={pension.name} onChange={(event) => updatePension(pension.id, { name: event.target.value })} /></label><label>수령 시작 나이<input aria-label="수령 시작 나이" type="number" value={pension.startAge} onChange={(event) => updatePension(pension.id, { startAge: parseNumber(event.target.value) })} /></label><MoneyInput label={`${pension.name} 월 수령액`} value={pension.monthlyAmount} onValueChange={(value) => updatePension(pension.id, { monthlyAmount: value })} /><label>보수적 반영률 (%)<input aria-label="보수적 반영률" type="number" value={Math.round(pension.reliability * 100)} onChange={(event) => updatePension(pension.id, { reliability: parseNumber(event.target.value) / 100 })} /></label></article>)}</div><div className="assumption-strip"><span>연금 시작 후 월 부족액<strong>{formatMoney(Math.max(0, state.monthlyRetirementExpense - (state.pensions[0]?.monthlyAmount ?? 0) * (state.pensions[0]?.reliability ?? 1)))}</strong></span><span>브릿지 기간<strong>{Math.max(0, (state.pensions[0]?.startAge ?? state.currentAge) - state.currentAge)}년</strong></span><span>잠긴자산 해제<strong>{access.nextUnlockAge === null ? '-' : `${access.nextUnlockAge}세`}</strong></span></div><p className="chart-note">국민연금처럼 미래 월수령액이 있는 항목은 자산으로 더하지 않고, 해당 나이부터 필요한 생활비를 줄이는 현금흐름으로 처리합니다.</p></section>
 
       <section className="panel"><div className="section-title"><p className="eyebrow">Sensitivity</p><h2>{t.sensitivity}</h2></div><SensitivityTable cases={sensitivity} t={t} formatMoney={formatMoney} /></section>
       <section className="bottom-grid"><div className="panel advice-panel"><div className="section-title"><p className="eyebrow">{t.action}</p><h2>{t.advice}</h2></div><ul><li>{t.adviceExpense(formatMoney(fiNumber - calculateFiNumber(state.monthlyRetirementExpense * 0.9, state.safeWithdrawalRate)))}</li><li>{t.adviceSaving(sensitivity.find((item) => item.label === '저축 +20%')?.yearsToFi ?? null)}</li><li>{t.adviceReturn(formatPercent(realReturn))}</li></ul></div><div className="panel saved-panel"><div className="section-title"><p className="eyebrow">{t.saved}</p><h2>{t.savedScenarios}</h2></div>{savedScenarios.length === 0 ? <p className="empty-state">{t.emptySaved}</p> : <div className="saved-list">{savedScenarios.map((scenario) => <button type="button" key={scenario.id} onClick={() => setState(scenario.state)}><strong>{scenario.yearsToFi === null ? t.unavailable : t.yearsLater(scenario.yearsToFi)}</strong><span>{formatMoney(scenario.fiNumber)} · {formatPercent(scenario.progress)}</span><small>{scenario.savedAt}</small></button>)}</div>}</div></section>

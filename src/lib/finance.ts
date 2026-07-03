@@ -8,8 +8,23 @@ export type Asset = {
   type: AssetType
   value: number
   expectedAnnualReturn?: number
+  /** Age when this asset can be used for retirement spending. Empty/undefined means available now. */
+  availableAge?: number
   liquidity: Liquidity
   includeForFi: boolean
+}
+
+export type PensionCashflow = {
+  id: string
+  name: string
+  /** Age when monthly pension/income starts. */
+  startAge: number
+  /** Optional final age. Undefined means lifetime/indefinite. */
+  endAge?: number
+  monthlyAmount: number
+  /** Conservative haircut: 1 = 100%, 0.7 = count 70% of expected benefit. */
+  reliability: number
+  inflationLinked?: boolean
 }
 
 export type Liability = {
@@ -63,6 +78,30 @@ export type DrawdownResult = {
   points: DrawdownPoint[]
 }
 
+export type UnlockedFiAssetsResult = {
+  unlockedFiAssets: number
+  lockedFiAssets: number
+  nextUnlockAge: number | null
+}
+
+export type RetirementReadinessPoint = {
+  age: number
+  startBalance: number
+  pensionIncome: number
+  withdrawal: number
+  unlockedFromAssets: number
+  growth: number
+  endBalance: number
+}
+
+export type RetirementReadinessResult = {
+  success: boolean
+  depletedAge: number | null
+  unlockedAtRetirement: number
+  lockedAtRetirement: number
+  points: RetirementReadinessPoint[]
+}
+
 export type SimulationInput = {
   currentFiAssets: number
   monthlyContribution: number
@@ -94,6 +133,18 @@ export function calculateNetWorth({ assets, liabilities }: NetWorthInput): NetWo
     netWorth: totalAssets - totalLiabilities,
     fiAssets,
   }
+}
+
+export function calculateUnlockedFiAssets({ assets, currentAge }: { assets: Asset[]; currentAge: number }): UnlockedFiAssetsResult {
+  const fiAssets = assets.filter((asset) => asset.includeForFi)
+  const unlockedFiAssets = fiAssets
+    .filter((asset) => asset.availableAge === undefined || asset.availableAge <= currentAge)
+    .reduce((sum, asset) => sum + clampMoney(asset.value), 0)
+  const lockedAssets = fiAssets.filter((asset) => asset.availableAge !== undefined && asset.availableAge > currentAge)
+  const lockedFiAssets = lockedAssets.reduce((sum, asset) => sum + clampMoney(asset.value), 0)
+  const nextUnlockAge = lockedAssets.reduce<number | null>((next, asset) => next === null ? asset.availableAge ?? null : Math.min(next, asset.availableAge ?? next), null)
+
+  return { unlockedFiAssets, lockedFiAssets, nextUnlockAge }
 }
 
 export function calculateFiNumber(monthlyRetirementExpense: number, safeWithdrawalRate: number): number {
@@ -171,6 +222,70 @@ export function simulateRetirementDrawdown({ startingBalance, annualExpense, ann
   }
 
   return { success: depletedYear === null, depletedYear, points }
+}
+
+function calculateAnnualPensionIncome(pensions: PensionCashflow[], age: number): number {
+  return pensions
+    .filter((pension) => pension.startAge <= age && (pension.endAge === undefined || pension.endAge >= age))
+    .reduce((sum, pension) => sum + clampMoney(pension.monthlyAmount) * 12 * Math.max(0, Math.min(1, pension.reliability)), 0)
+}
+
+export function calculateRetirementReadiness({
+  currentAge,
+  retirementAge,
+  retirementYears,
+  monthlyRetirementExpense,
+  annualReturn,
+  assets,
+  pensions,
+}: {
+  currentAge: number
+  retirementAge: number
+  retirementYears: number
+  monthlyRetirementExpense: number
+  annualReturn: number
+  assets: Asset[]
+  pensions: PensionCashflow[]
+}): RetirementReadinessResult {
+  const startAge = Math.max(currentAge, retirementAge)
+  const unlocked = calculateUnlockedFiAssets({ assets, currentAge: startAge })
+  let balance = unlocked.unlockedFiAssets
+  const lockedByAge = new Map<number, number>()
+  assets
+    .filter((asset) => asset.includeForFi && asset.availableAge !== undefined && asset.availableAge > startAge)
+    .forEach((asset) => lockedByAge.set(asset.availableAge!, (lockedByAge.get(asset.availableAge!) ?? 0) + clampMoney(asset.value)))
+
+  const points: RetirementReadinessPoint[] = []
+  let depletedAge: number | null = null
+
+  for (let offset = 0; offset < retirementYears; offset += 1) {
+    const age = startAge + offset
+    const startBalance = balance
+    const unlockedFromAssets = lockedByAge.get(age) ?? 0
+    balance += unlockedFromAssets
+    const annualExpense = clampMoney(monthlyRetirementExpense) * 12
+    const pensionIncome = calculateAnnualPensionIncome(pensions, age)
+    const withdrawal = Math.max(0, annualExpense - pensionIncome)
+    balance -= withdrawal
+    const growth = Math.max(0, balance) * annualReturn
+    balance += growth
+    const endBalance = Math.max(0, balance)
+    points.push({ age, startBalance, pensionIncome, withdrawal, unlockedFromAssets, growth, endBalance })
+
+    if (balance <= 0) {
+      depletedAge = age
+      balance = 0
+      break
+    }
+  }
+
+  return {
+    success: depletedAge === null,
+    depletedAge,
+    unlockedAtRetirement: unlocked.unlockedFiAssets,
+    lockedAtRetirement: unlocked.lockedFiAssets,
+    points,
+  }
 }
 
 export function getSensitivityMatrix(input: SimulationInput): SensitivityCase[] {

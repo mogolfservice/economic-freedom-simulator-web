@@ -73,4 +73,20 @@ describe('EconomicFreedomSimulator app', () => {
     expect(JSON.parse(localStorage.getItem('efs-scenarios') ?? '[]')).toHaveLength(1)
     expect(screen.getByText('저장된 시나리오')).toBeInTheDocument()
   })
+
+  it('models pension cashflow and assets locked until age 55', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    expect(screen.getByText('연금/현금흐름')).toBeInTheDocument()
+    expect(screen.getByText('55세 이후 사용가능 자산')).toBeInTheDocument()
+    expect(screen.getByText('잠긴 FI 자산 ₩80,000,000')).toBeInTheDocument()
+    expect(screen.getByText('국민연금')).toBeInTheDocument()
+
+    await user.clear(screen.getByLabelText('국민연금 월 수령액'))
+    await user.type(screen.getByLabelText('국민연금 월 수령액'), '1,500,000')
+
+    expect(screen.getByText('연금 시작 후 월 부족액')).toBeInTheDocument()
+    expect(screen.getByText('₩2,500,000')).toBeInTheDocument()
+  })
 })

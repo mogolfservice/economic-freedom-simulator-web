@@ -14,28 +14,44 @@ afterEach(() => {
 })
 
 describe('EconomicFreedomSimulator app', () => {
-  it('renders Korean FIRE dashboard with default retirement result', () => {
+  it('renders Korean FIRE dashboard with comma-formatted KRW defaults', () => {
     render(<App />)
 
     expect(screen.getByRole('heading', { name: '경제적자유시뮬레이터' })).toBeInTheDocument()
     expect(screen.getByText('13년 뒤')).toBeInTheDocument()
     expect(screen.getByText('2039년')).toBeInTheDocument()
-    expect(screen.getAllByText('13.7억 원').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('₩1,371,428,571').length).toBeGreaterThan(0)
     expect(screen.getByText('36.5%')).toBeInTheDocument()
     expect(screen.getByText('민감도 분석')).toBeInTheDocument()
+    expect(screen.getByLabelText('월 소득')).toHaveValue('8,000,000')
+    expect(screen.getByLabelText('은퇴 후 월 생활비')).toHaveValue('4,000,000')
   })
 
-  it('updates the FI result when monthly retirement expense is reduced', async () => {
+  it('updates the FI result when comma-formatted monthly retirement expense is reduced', async () => {
     const user = userEvent.setup()
     render(<App />)
 
     const expenseInput = screen.getByLabelText('은퇴 후 월 생활비')
     await user.clear(expenseInput)
-    await user.type(expenseInput, '3000000')
+    await user.type(expenseInput, '3,000,000')
 
+    expect(expenseInput).toHaveValue('3,000,000')
     expect(screen.getByText('9년 뒤')).toBeInTheDocument()
     expect(screen.getByText('2035년')).toBeInTheDocument()
-    expect(screen.getAllByText('10.3억 원').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('₩1,028,571,429').length).toBeGreaterThan(0)
+  })
+
+  it('switches language and currency for labels and money formatting', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    await user.selectOptions(screen.getByLabelText('언어'), 'en')
+    expect(screen.getByRole('heading', { name: 'Financial Freedom Simulator' })).toBeInTheDocument()
+    expect(screen.getByText('Sensitivity Analysis')).toBeInTheDocument()
+
+    await user.selectOptions(screen.getByLabelText('Currency'), 'USD')
+    expect(screen.getAllByText('$1,371,428,571').length).toBeGreaterThan(0)
+    expect(screen.getByLabelText('Monthly income')).toHaveValue('8,000,000')
   })
 
   it('can add an asset, include it in FI assets, and persist scenario locally', async () => {
@@ -49,7 +65,7 @@ describe('EconomicFreedomSimulator app', () => {
     await user.type(assetNameInputs.at(-1)!, '추가 ETF')
     const assetValueInputs = within(assetsPanel).getAllByLabelText('평가액')
     await user.clear(assetValueInputs.at(-1)!)
-    await user.type(assetValueInputs.at(-1)!, '100000000')
+    await user.type(assetValueInputs.at(-1)!, '100,000,000')
 
     expect(screen.getByText('43.8%')).toBeInTheDocument()
 

@@ -11,6 +11,7 @@ import {
   simulateRetirementDrawdown,
   toMonthlyRate,
   toRealReturn,
+  type ChildExpense,
   type PensionCashflow,
   type SimulationInput,
 } from './finance'
@@ -129,6 +130,39 @@ describe('finance engine', () => {
     expect(result.points.find((point) => point.age === 55)?.pensionIncome).toBe(14_640_000)
     expect(result.points.find((point) => point.age === 60)?.pensionIncome).toBe(8_640_000)
     expect(result.points.find((point) => point.age === 65)?.pensionIncome).toBe(23_040_000)
+  })
+
+  it('adds child monthly support, university costs, and one-time events only for active ages', () => {
+    const children: ChildExpense[] = [
+      {
+        id: 'first',
+        name: '첫째',
+        currentAge: 8,
+        monthlyCareCost: 700_000,
+        monthlyEducationCost: 500_000,
+        supportUntilAge: 24,
+        universityStartAge: 19,
+        universityEndAge: 22,
+        annualUniversityCost: 15_000_000,
+        lumpSumEvents: [{ id: 'housing', label: '주거지원', childAge: 30, amount: 50_000_000 }],
+      },
+    ]
+
+    const result = calculateRetirementReadiness({
+      currentAge: 40,
+      retirementAge: 40,
+      retirementYears: 23,
+      monthlyRetirementExpense: 4_000_000,
+      annualReturn: 0,
+      assets: [{ id: 'taxable', name: '일반 투자자산', type: 'stock', value: 1_500_000_000, liquidity: 'high', includeForFi: true }],
+      pensions: [],
+      children,
+    })
+
+    expect(result.points.find((point) => point.age === 40)?.childExpense).toBe(14_400_000)
+    expect(result.points.find((point) => point.age === 51)?.childExpense).toBe(29_400_000)
+    expect(result.points.find((point) => point.age === 56)?.childExpense).toBe(0)
+    expect(result.points.find((point) => point.age === 62)?.childExpense).toBe(50_000_000)
   })
 
   it('calculates savings rate safely', () => {

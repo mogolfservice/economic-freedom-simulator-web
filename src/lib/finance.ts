@@ -28,6 +28,26 @@ export type PensionCashflow = {
   inflationLinked?: boolean
 }
 
+export type ChildExpenseEvent = {
+  id: string
+  label: string
+  childAge: number
+  amount: number
+}
+
+export type ChildExpense = {
+  id: string
+  name: string
+  currentAge: number
+  monthlyCareCost: number
+  monthlyEducationCost: number
+  supportUntilAge: number
+  universityStartAge?: number
+  universityEndAge?: number
+  annualUniversityCost?: number
+  lumpSumEvents?: ChildExpenseEvent[]
+}
+
 export type Liability = {
   id: string
   name: string
@@ -89,6 +109,7 @@ export type RetirementReadinessPoint = {
   age: number
   startBalance: number
   pensionIncome: number
+  childExpense: number
   withdrawal: number
   unlockedFromAssets: number
   growth: number
@@ -231,6 +252,20 @@ function calculateAnnualPensionIncome(pensions: PensionCashflow[], age: number):
     .reduce((sum, pension) => sum + clampMoney(pension.monthlyAmount) * 12 * Math.max(0, Math.min(1, pension.reliability)), 0)
 }
 
+function calculateAnnualChildExpense(children: ChildExpense[], parentAge: number, currentParentAge: number): number {
+  return children.reduce((sum, child) => {
+    const childAge = child.currentAge + (parentAge - currentParentAge)
+    const monthlyExpense = childAge < child.supportUntilAge ? (clampMoney(child.monthlyCareCost) + clampMoney(child.monthlyEducationCost)) * 12 : 0
+    const universityExpense = child.universityStartAge !== undefined && child.universityEndAge !== undefined && childAge >= child.universityStartAge && childAge <= child.universityEndAge
+      ? clampMoney(child.annualUniversityCost ?? 0)
+      : 0
+    const eventExpense = (child.lumpSumEvents ?? [])
+      .filter((event) => event.childAge === childAge)
+      .reduce((eventSum, event) => eventSum + clampMoney(event.amount), 0)
+    return sum + monthlyExpense + universityExpense + eventExpense
+  }, 0)
+}
+
 export function calculateRetirementReadiness({
   currentAge,
   retirementAge,
@@ -239,6 +274,7 @@ export function calculateRetirementReadiness({
   annualReturn,
   assets,
   pensions,
+  children = [],
 }: {
   currentAge: number
   retirementAge: number
@@ -247,6 +283,7 @@ export function calculateRetirementReadiness({
   annualReturn: number
   assets: Asset[]
   pensions: PensionCashflow[]
+  children?: ChildExpense[]
 }): RetirementReadinessResult {
   const startAge = Math.max(currentAge, retirementAge)
   const unlocked = calculateUnlockedFiAssets({ assets, currentAge: startAge })
@@ -266,12 +303,13 @@ export function calculateRetirementReadiness({
     balance += unlockedFromAssets
     const annualExpense = clampMoney(monthlyRetirementExpense) * 12
     const pensionIncome = calculateAnnualPensionIncome(pensions, age)
-    const withdrawal = Math.max(0, annualExpense - pensionIncome)
+    const childExpense = calculateAnnualChildExpense(children, age, currentAge)
+    const withdrawal = Math.max(0, annualExpense + childExpense - pensionIncome)
     balance -= withdrawal
     const growth = Math.max(0, balance) * annualReturn
     balance += growth
     const endBalance = Math.max(0, balance)
-    points.push({ age, startBalance, pensionIncome, withdrawal, unlockedFromAssets, growth, endBalance })
+    points.push({ age, startBalance, pensionIncome, childExpense, withdrawal, unlockedFromAssets, growth, endBalance })
 
     if (balance <= 0) {
       depletedAge = age

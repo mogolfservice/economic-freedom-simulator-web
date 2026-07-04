@@ -115,4 +115,39 @@ describe('EconomicFreedomSimulator app', () => {
     expect(screen.getByDisplayValue('75')).toBeInTheDocument()
     expect(screen.getAllByText('₩2,000,000').length).toBeGreaterThanOrEqual(2)
   })
+
+  it('can add child expense with support age, university cost, and lump-sum event', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    expect(screen.getByText('자녀/부양가족 비용')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '자녀 추가' }))
+
+    const childrenPanel = screen.getByTestId('children-list')
+    const childNameInputs = within(childrenPanel).getAllByLabelText('자녀명')
+    await user.clear(childNameInputs.at(-1)!)
+    await user.type(childNameInputs.at(-1)!, '첫째')
+
+    await user.clear(within(childrenPanel).getAllByLabelText('현재 자녀 나이').at(-1)!)
+    await user.type(within(childrenPanel).getAllByLabelText('현재 자녀 나이').at(-1)!, '8')
+    await user.clear(within(childrenPanel).getAllByLabelText('월 양육비').at(-1)!)
+    await user.type(within(childrenPanel).getAllByLabelText('월 양육비').at(-1)!, '700,000')
+    await user.clear(within(childrenPanel).getAllByLabelText('월 교육비').at(-1)!)
+    await user.type(within(childrenPanel).getAllByLabelText('월 교육비').at(-1)!, '500,000')
+    await user.clear(within(childrenPanel).getAllByLabelText('지원 종료 나이').at(-1)!)
+    await user.type(within(childrenPanel).getAllByLabelText('지원 종료 나이').at(-1)!, '24')
+    await user.clear(within(childrenPanel).getAllByLabelText('대학 연간비').at(-1)!)
+    await user.type(within(childrenPanel).getAllByLabelText('대학 연간비').at(-1)!, '15,000,000')
+    await user.clear(within(childrenPanel).getAllByLabelText('일시금 나이').at(-1)!)
+    await user.type(within(childrenPanel).getAllByLabelText('일시금 나이').at(-1)!, '30')
+    await user.clear(within(childrenPanel).getAllByLabelText('일시금 금액').at(-1)!)
+    await user.type(within(childrenPanel).getAllByLabelText('일시금 금액').at(-1)!, '50,000,000')
+
+    expect(screen.getByText('첫째')).toBeInTheDocument()
+    expect(screen.getByText('현재 연간 자녀비')).toBeInTheDocument()
+    expect(screen.getByText('₩14,400,000')).toBeInTheDocument()
+    expect(screen.getByText('대학 연간비 합계')).toBeInTheDocument()
+    expect(screen.getByText('₩15,000,000')).toBeInTheDocument()
+  })
+
 })

@@ -132,6 +132,22 @@ export type SimulationInput = {
   safeWithdrawalRate: number
   startYear: number
   retirementYears: number
+  currentAge?: number
+  assets?: Asset[]
+  pensions?: PensionCashflow[]
+  children?: ChildExpense[]
+}
+
+export type RetirementTimingInput = {
+  currentAge: number
+  monthlyContribution: number
+  monthlyRetirementExpense: number
+  annualReturn: number
+  retirementYears: number
+  assets: Asset[]
+  pensions: PensionCashflow[]
+  children?: ChildExpense[]
+  maxYears?: number
 }
 
 export type SensitivityCase = {
@@ -327,6 +343,73 @@ export function calculateRetirementReadiness({
   }
 }
 
+export function projectAssetsToRetirementAge({
+  assets,
+  currentAge,
+  retirementAge,
+  annualContribution,
+  annualReturn,
+}: {
+  assets: Asset[]
+  currentAge: number
+  retirementAge: number
+  annualContribution: number
+  annualReturn: number
+}): Asset[] {
+  const yearsUntilRetirement = Math.max(0, retirementAge - currentAge)
+  const currentlyUnlocked = calculateUnlockedFiAssets({ assets, currentAge }).unlockedFiAssets
+  let projectedUnlocked = currentlyUnlocked
+
+  for (let year = 0; year < yearsUntilRetirement; year += 1) {
+    projectedUnlocked = projectedUnlocked * (1 + annualReturn) + clampMoney(annualContribution)
+  }
+
+  return [
+    {
+      id: 'projected-unlocked-fi-assets',
+      name: '은퇴 시점까지 적립된 사용가능 FI 자산',
+      type: 'fund',
+      value: projectedUnlocked,
+      liquidity: 'high',
+      includeForFi: true,
+    },
+    ...assets.filter((asset) => asset.includeForFi && asset.availableAge !== undefined && asset.availableAge > currentAge),
+  ]
+}
+
+export function calculateYearsToRetirementReadiness({
+  currentAge,
+  monthlyContribution,
+  monthlyRetirementExpense,
+  annualReturn,
+  retirementYears,
+  assets,
+  pensions,
+  children = [],
+  maxYears = 100,
+}: RetirementTimingInput): number | null {
+  const annualContribution = clampMoney(monthlyContribution) * 12
+
+  for (let years = 0; years <= maxYears; years += 1) {
+    const retirementAge = currentAge + years
+    const projectedAssets = projectAssetsToRetirementAge({ assets, currentAge, retirementAge, annualContribution, annualReturn })
+    const readiness = calculateRetirementReadiness({
+      currentAge,
+      retirementAge,
+      retirementYears,
+      monthlyRetirementExpense,
+      annualReturn,
+      assets: projectedAssets,
+      pensions,
+      children,
+    })
+
+    if (readiness.success) return years
+  }
+
+  return null
+}
+
 export function getSensitivityMatrix(input: SimulationInput): SensitivityCase[] {
   const scenarios = [
     { label: '기본', description: '현재 입력값 유지', returnDelta: 0, expenseFactor: 1, savingFactor: 1 },
@@ -340,12 +423,25 @@ export function getSensitivityMatrix(input: SimulationInput): SensitivityCase[] 
 
   return scenarios.map((scenario) => {
     const fiNumber = calculateFiNumber(input.monthlyRetirementExpense * scenario.expenseFactor, input.safeWithdrawalRate)
-    const yearsToFi = calculateYearsToFi({
-      currentFiAssets: input.currentFiAssets,
-      annualContribution: input.monthlyContribution * 12 * scenario.savingFactor,
-      annualReturn: input.annualReturn + scenario.returnDelta,
-      fiNumber,
-    })
+    const annualReturn = input.annualReturn + scenario.returnDelta
+    const monthlyRetirementExpense = input.monthlyRetirementExpense * scenario.expenseFactor
+    const yearsToFi = input.assets && input.pensions && input.currentAge !== undefined
+      ? calculateYearsToRetirementReadiness({
+        currentAge: input.currentAge,
+        monthlyContribution: input.monthlyContribution * scenario.savingFactor,
+        monthlyRetirementExpense,
+        annualReturn,
+        retirementYears: input.retirementYears,
+        assets: input.assets,
+        pensions: input.pensions,
+        children: input.children ?? [],
+      })
+      : calculateYearsToFi({
+        currentFiAssets: input.currentFiAssets,
+        annualContribution: input.monthlyContribution * 12 * scenario.savingFactor,
+        annualReturn,
+        fiNumber,
+      })
 
     return {
       label: scenario.label,

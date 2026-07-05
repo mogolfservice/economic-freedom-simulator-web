@@ -6,9 +6,10 @@ import {
   calculateRetirementReadiness,
   calculateSavingsRate,
   calculateUnlockedFiAssets,
-  calculateYearsToFi,
+  calculateYearsToRetirementReadiness,
   createYearlyProjection,
   getSensitivityMatrix,
+  projectAssetsToRetirementAge,
   toRealReturn,
   type Asset,
   type ChildExpense,
@@ -199,12 +200,15 @@ function App() {
   const netWorth = useMemo(() => calculateNetWorth({ assets: state.assets, liabilities: state.liabilities }), [state.assets, state.liabilities])
   const access = useMemo(() => calculateUnlockedFiAssets({ assets: state.assets, currentAge: state.currentAge }), [state.assets, state.currentAge])
   const fiNumber = useMemo(() => calculateFiNumber(state.monthlyRetirementExpense, state.safeWithdrawalRate), [state.monthlyRetirementExpense, state.safeWithdrawalRate])
-  const yearsToFi = useMemo(() => calculateYearsToFi({ currentFiAssets: access.unlockedFiAssets, annualContribution: state.monthlyContribution * 12, annualReturn: realReturn, fiNumber }), [fiNumber, access.unlockedFiAssets, realReturn, state.monthlyContribution])
+  const yearsToFi = useMemo(() => calculateYearsToRetirementReadiness({ currentAge: state.currentAge, monthlyContribution: state.monthlyContribution, monthlyRetirementExpense: state.monthlyRetirementExpense, annualReturn: realReturn, retirementYears: state.retirementYears, assets: state.assets, pensions: state.pensions, children: state.children }), [realReturn, state.assets, state.children, state.currentAge, state.monthlyContribution, state.monthlyRetirementExpense, state.pensions, state.retirementYears])
   const retirementYear = yearsToFi === null ? null : START_YEAR + yearsToFi
   const progress = fiNumber > 0 ? access.unlockedFiAssets / fiNumber : 1
+
   const projection = useMemo(() => createYearlyProjection({ currentFiAssets: access.unlockedFiAssets, annualContribution: state.monthlyContribution * 12, annualReturn: realReturn, fiNumber, startYear: START_YEAR }), [fiNumber, access.unlockedFiAssets, realReturn, state.monthlyContribution])
-  const readiness = useMemo(() => calculateRetirementReadiness({ currentAge: state.currentAge, retirementAge: state.currentAge + (yearsToFi ?? 0), retirementYears: state.retirementYears, monthlyRetirementExpense: state.monthlyRetirementExpense, annualReturn: realReturn, assets: state.assets, pensions: state.pensions, children: state.children }), [realReturn, state.assets, state.children, state.currentAge, state.monthlyRetirementExpense, state.pensions, state.retirementYears, yearsToFi])
-  const sensitivity = useMemo(() => getSensitivityMatrix({ currentFiAssets: access.unlockedFiAssets, monthlyContribution: state.monthlyContribution, monthlyRetirementExpense: state.monthlyRetirementExpense, annualReturn: realReturn, safeWithdrawalRate: state.safeWithdrawalRate, startYear: START_YEAR, retirementYears: state.retirementYears }), [access.unlockedFiAssets, realReturn, state.monthlyContribution, state.monthlyRetirementExpense, state.retirementYears, state.safeWithdrawalRate])
+  const projectedRetirementAssets = useMemo(() => projectAssetsToRetirementAge({ assets: state.assets, currentAge: state.currentAge, retirementAge: state.currentAge + (yearsToFi ?? 0), annualContribution: state.monthlyContribution * 12, annualReturn: realReturn }), [realReturn, state.assets, state.currentAge, state.monthlyContribution, yearsToFi])
+  const readiness = useMemo(() => calculateRetirementReadiness({ currentAge: state.currentAge, retirementAge: state.currentAge + (yearsToFi ?? 0), retirementYears: state.retirementYears, monthlyRetirementExpense: state.monthlyRetirementExpense, annualReturn: realReturn, assets: projectedRetirementAssets, pensions: state.pensions, children: state.children }), [projectedRetirementAssets, realReturn, state.children, state.currentAge, state.monthlyRetirementExpense, state.pensions, state.retirementYears, yearsToFi])
+  const sensitivity = useMemo(() => getSensitivityMatrix({ currentFiAssets: access.unlockedFiAssets, monthlyContribution: state.monthlyContribution, monthlyRetirementExpense: state.monthlyRetirementExpense, annualReturn: realReturn, safeWithdrawalRate: state.safeWithdrawalRate, startYear: START_YEAR, retirementYears: state.retirementYears, currentAge: state.currentAge, assets: state.assets, pensions: state.pensions, children: state.children }), [access.unlockedFiAssets, realReturn, state.assets, state.children, state.currentAge, state.monthlyContribution, state.monthlyRetirementExpense, state.pensions, state.retirementYears, state.safeWithdrawalRate])
+
   const totalMonthlyRetirementIncome = state.pensions.reduce((sum, income) => sum + Math.max(0, income.monthlyAmount) * Math.max(0, Math.min(1, income.reliability)), 0)
   const monthlyShortfallAfterIncome = Math.max(0, state.monthlyRetirementExpense - totalMonthlyRetirementIncome)
   const currentAnnualChildExpense = state.children.reduce((sum, child) => sum + (Math.max(0, child.monthlyCareCost) + Math.max(0, child.monthlyEducationCost)) * 12, 0)

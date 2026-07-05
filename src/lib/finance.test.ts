@@ -3,6 +3,7 @@ import {
   calculateFiNumber,
   calculateNetWorth,
   calculateRetirementReadiness,
+  calculateYearsToRetirementReadiness,
   calculateSavingsRate,
   calculateUnlockedFiAssets,
   calculateYearsToFi,
@@ -130,6 +131,27 @@ describe('finance engine', () => {
     expect(result.points.find((point) => point.age === 55)?.pensionIncome).toBe(14_640_000)
     expect(result.points.find((point) => point.age === 60)?.pensionIncome).toBe(8_640_000)
     expect(result.points.find((point) => point.age === 65)?.pensionIncome).toBe(23_040_000)
+  })
+
+  it('uses future retirement income cashflows when finding the earliest retirement age', () => {
+    const pensions: PensionCashflow[] = [
+      { id: 'national', name: '국민연금', kind: 'pension', startAge: 65, monthlyAmount: 1_200_000, reliability: 1 },
+    ]
+
+    const years = calculateYearsToRetirementReadiness({
+      currentAge: 50,
+      monthlyContribution: 0,
+      monthlyRetirementExpense: 4_000_000,
+      annualReturn: 0,
+      retirementYears: 30,
+      assets: [
+        { id: 'taxable', name: '일반 투자자산', type: 'stock', value: 1_250_000_000, liquidity: 'high', includeForFi: true },
+      ],
+      pensions,
+    })
+
+    expect(calculateYearsToFi({ currentFiAssets: 1_250_000_000, annualContribution: 0, annualReturn: 0, fiNumber: calculateFiNumber(4_000_000, 0.035) })).toBeNull()
+    expect(years).toBe(0)
   })
 
   it('adds child monthly support, university costs, and one-time events only for active ages', () => {

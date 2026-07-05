@@ -18,8 +18,8 @@ describe('EconomicFreedomSimulator app', () => {
     render(<App />)
 
     expect(screen.getByRole('heading', { name: '경제적자유시뮬레이터' })).toBeInTheDocument()
-    expect(screen.getByText('13년 뒤')).toBeInTheDocument()
-    expect(screen.getByText('2039년')).toBeInTheDocument()
+    expect(screen.getByText('7년 뒤')).toBeInTheDocument()
+    expect(screen.getByText('2033년')).toBeInTheDocument()
     expect(screen.getAllByText('₩1,371,428,571').length).toBeGreaterThan(0)
     expect(screen.getByText('36.5%')).toBeInTheDocument()
     expect(screen.getByText('민감도 분석')).toBeInTheDocument()
@@ -36,8 +36,8 @@ describe('EconomicFreedomSimulator app', () => {
     await user.type(expenseInput, '3,000,000')
 
     expect(expenseInput).toHaveValue('3,000,000')
-    expect(screen.getByText('9년 뒤')).toBeInTheDocument()
-    expect(screen.getByText('2035년')).toBeInTheDocument()
+    expect(screen.getByText('3년 뒤')).toBeInTheDocument()
+    expect(screen.getByText('2029년')).toBeInTheDocument()
     expect(screen.getAllByText('₩1,028,571,429').length).toBeGreaterThan(0)
   })
 

@@ -2,7 +2,7 @@
 import '@testing-library/jest-dom/vitest'
 import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it, beforeEach, afterEach } from 'vitest'
+import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest'
 import App from './App'
 
 beforeEach(() => {
@@ -148,6 +148,30 @@ describe('EconomicFreedomSimulator app', () => {
     expect(screen.getByText('₩14,400,000')).toBeInTheDocument()
     expect(screen.getByText('대학 연간비 합계')).toBeInTheDocument()
     expect(screen.getByText('₩15,000,000')).toBeInTheDocument()
+  })
+
+  it('shows decision-grade insights, scenario comparison, Korea costs, and report copy', async () => {
+    const user = userEvent.setup()
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: vi.fn().mockResolvedValue(undefined) } })
+    render(<App />)
+
+    expect(screen.getByText('결과 해석')).toBeInTheDocument()
+    expect(screen.getByText('현재 사용가능 FI 자산은 목표의 36.5%입니다.')).toBeInTheDocument()
+    expect(screen.getByText('시나리오 비교')).toBeInTheDocument()
+    expect(screen.getByText('보수')).toBeInTheDocument()
+    expect(screen.getByText('낙관')).toBeInTheDocument()
+    expect(screen.getByText('한국형 비용 보정')).toBeInTheDocument()
+
+    await user.click(screen.getByLabelText('건강보험료 반영'))
+    await user.clear(screen.getByLabelText('건강보험료 월 추정치'))
+    await user.type(screen.getByLabelText('건강보험료 월 추정치'), '350,000')
+
+    expect(screen.getByText('월 추가 비용')).toBeInTheDocument()
+    expect(screen.getAllByText('₩350,000').length).toBeGreaterThan(0)
+
+    await user.click(screen.getByRole('button', { name: 'Markdown 리포트 복사' }))
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith(expect.stringContaining('# 한국형 경제적 자유 시뮬레이터 리포트'))
+    expect(screen.getByText('리포트를 클립보드에 복사했습니다.')).toBeInTheDocument()
   })
 
 })

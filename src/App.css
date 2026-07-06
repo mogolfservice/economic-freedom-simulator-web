@@ -242,11 +242,16 @@ h2 {
 }
 
 .workspace,
-.bottom-grid {
+.bottom-grid,
+.decision-grid {
   display: grid;
   grid-template-columns: 0.9fr 1.1fr;
   gap: 18px;
   margin-bottom: 18px;
+}
+
+.decision-grid {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr) minmax(280px, 0.85fr);
 }
 
 .panel {
@@ -302,6 +307,69 @@ label {
 
 .chart-panel {
   min-width: 0;
+}
+
+.insight-list,
+.mini-notes {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding-left: 18px;
+  line-height: 1.65;
+  word-break: keep-all;
+}
+
+.insight-list li {
+  padding-left: 4px;
+}
+
+.insight-list li.good {
+  color: var(--good);
+  font-weight: 900;
+}
+
+.insight-list li.warn {
+  color: var(--warning);
+  font-weight: 900;
+}
+
+.copy-status {
+  margin: 14px 0 0;
+  color: var(--good);
+  font-weight: 900;
+}
+
+.risk {
+  display: inline-flex;
+  border-radius: 999px;
+  padding: 5px 9px;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.risk.low {
+  color: var(--good);
+  background: var(--good-soft);
+}
+
+.risk.medium {
+  color: var(--warning);
+  background: var(--warning-soft);
+}
+
+.risk.high {
+  color: #991b1b;
+  background: #fee2e2;
+}
+
+.form-grid.compact {
+  grid-template-columns: 1fr;
+}
+
+.mini-notes {
+  margin-top: 14px;
+  color: var(--muted);
+  font-size: 13px;
 }
 
 .mini-chart {
@@ -506,7 +574,8 @@ td:first-child {
 @media (max-width: 1100px) {
   .hero-panel,
   .workspace,
-  .bottom-grid {
+  .bottom-grid,
+  .decision-grid {
     grid-template-columns: 1fr;
   }
 

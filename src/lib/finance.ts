@@ -55,6 +55,10 @@ export type Liability = {
   balance: number
   interestRate: number
   monthlyPayment?: number
+  /** Age when this debt payment ends. Empty/undefined means ongoing while included. */
+  payoffAge?: number
+  /** Whether monthlyPayment should be counted as retirement spending until payoffAge. */
+  includePaymentInRetirement?: boolean
 }
 
 export type NetWorthInput = {
@@ -136,6 +140,7 @@ export type SimulationInput = {
   assets?: Asset[]
   pensions?: PensionCashflow[]
   children?: ChildExpense[]
+  liabilities?: Liability[]
 }
 
 export type RetirementTimingInput = {
@@ -147,6 +152,7 @@ export type RetirementTimingInput = {
   assets: Asset[]
   pensions: PensionCashflow[]
   children?: ChildExpense[]
+  liabilities?: Liability[]
   maxYears?: number
 }
 
@@ -201,6 +207,13 @@ export function toMonthlyRate(annualReturn: number): number {
 export function calculateSavingsRate(monthlyIncome: number, monthlySaving: number): number {
   if (!Number.isFinite(monthlyIncome) || monthlyIncome <= 0) return 0
   return Math.max(0, monthlySaving) / monthlyIncome
+}
+
+export function calculateMonthlyDebtPaymentAtAge(liabilities: Liability[] = [], age: number): number {
+  return liabilities
+    .filter((liability) => liability.includePaymentInRetirement)
+    .filter((liability) => liability.payoffAge === undefined || age < liability.payoffAge)
+    .reduce((sum, liability) => sum + clampMoney(liability.monthlyPayment ?? 0), 0)
 }
 
 export function calculateYearsToFi({ currentFiAssets, annualContribution, annualReturn, fiNumber, maxYears = 100 }: YearsToFiInput): number | null {
@@ -291,6 +304,7 @@ export function calculateRetirementReadiness({
   assets,
   pensions,
   children = [],
+  liabilities = [],
 }: {
   currentAge: number
   retirementAge: number
@@ -300,6 +314,7 @@ export function calculateRetirementReadiness({
   assets: Asset[]
   pensions: PensionCashflow[]
   children?: ChildExpense[]
+  liabilities?: Liability[]
 }): RetirementReadinessResult {
   const startAge = Math.max(currentAge, retirementAge)
   const unlocked = calculateUnlockedFiAssets({ assets, currentAge: startAge })
@@ -320,7 +335,8 @@ export function calculateRetirementReadiness({
     const annualExpense = clampMoney(monthlyRetirementExpense) * 12
     const pensionIncome = calculateAnnualPensionIncome(pensions, age)
     const childExpense = calculateAnnualChildExpense(children, age, currentAge)
-    const withdrawal = Math.max(0, annualExpense + childExpense - pensionIncome)
+    const debtPayment = calculateMonthlyDebtPaymentAtAge(liabilities, age) * 12
+    const withdrawal = Math.max(0, annualExpense + childExpense + debtPayment - pensionIncome)
     balance -= withdrawal
     const growth = Math.max(0, balance) * annualReturn
     balance += growth
@@ -386,6 +402,7 @@ export function calculateYearsToRetirementReadiness({
   assets,
   pensions,
   children = [],
+  liabilities = [],
   maxYears = 100,
 }: RetirementTimingInput): number | null {
   const annualContribution = clampMoney(monthlyContribution) * 12
@@ -402,6 +419,7 @@ export function calculateYearsToRetirementReadiness({
       assets: projectedAssets,
       pensions,
       children,
+      liabilities,
     })
 
     if (readiness.success) return years

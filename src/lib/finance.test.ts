@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   calculateFiNumber,
+  calculateMonthlyDebtPaymentAtAge,
   calculateNetWorth,
   calculateRetirementReadiness,
   calculateYearsToRetirementReadiness,
@@ -185,6 +186,32 @@ describe('finance engine', () => {
     expect(result.points.find((point) => point.age === 51)?.childExpense).toBe(29_400_000)
     expect(result.points.find((point) => point.age === 56)?.childExpense).toBe(0)
     expect(result.points.find((point) => point.age === 62)?.childExpense).toBe(50_000_000)
+  })
+
+  it('calculates monthly debt payments by age until payoff age', () => {
+    const liabilities = [
+      { id: 'mortgage', name: '주담대', type: 'mortgage' as const, balance: 250_000_000, interestRate: 0.04, monthlyPayment: 1_500_000, payoffAge: 58, includePaymentInRetirement: true },
+      { id: 'credit', name: '카드론', type: 'credit' as const, balance: 10_000_000, interestRate: 0.12, monthlyPayment: 300_000, payoffAge: 45, includePaymentInRetirement: false },
+    ]
+
+    expect(calculateMonthlyDebtPaymentAtAge(liabilities, 57)).toBe(1_500_000)
+    expect(calculateMonthlyDebtPaymentAtAge(liabilities, 58)).toBe(0)
+  })
+
+  it('includes remaining retirement debt payments in drawdown readiness until payoff age', () => {
+    const result = calculateRetirementReadiness({
+      currentAge: 55,
+      retirementAge: 55,
+      retirementYears: 4,
+      monthlyRetirementExpense: 2_000_000,
+      annualReturn: 0,
+      assets: [{ id: 'cash', name: '현금', type: 'cash', value: 100_000_000, liquidity: 'high', includeForFi: true }],
+      pensions: [],
+      liabilities: [{ id: 'mortgage', name: '주담대', type: 'mortgage', balance: 100_000_000, interestRate: 0.04, monthlyPayment: 1_000_000, payoffAge: 57, includePaymentInRetirement: true }],
+    })
+
+    expect(result.points.find((point) => point.age === 55)?.withdrawal).toBe(36_000_000)
+    expect(result.points.find((point) => point.age === 57)?.withdrawal).toBe(24_000_000)
   })
 
   it('calculates savings rate safely', () => {

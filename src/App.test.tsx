@@ -7,10 +7,12 @@ import App from './App'
 
 beforeEach(() => {
   localStorage.clear()
+
 })
 
 afterEach(() => {
   cleanup()
+
 })
 
 describe('EconomicFreedomSimulator app', () => {
@@ -172,6 +174,31 @@ describe('EconomicFreedomSimulator app', () => {
     await user.click(screen.getByRole('button', { name: 'Markdown 리포트 복사' }))
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith(expect.stringContaining('# 한국형 경제적 자유 시뮬레이터 리포트'))
     expect(screen.getByText('리포트를 클립보드에 복사했습니다.')).toBeInTheDocument()
+  })
+
+
+  it('persists selected language and currency in localStorage and restores them on reload', async () => {
+    const user = userEvent.setup()
+    const { unmount } = render(<App />)
+
+    await user.selectOptions(screen.getByLabelText('언어'), 'en')
+    await user.selectOptions(screen.getByLabelText('Currency'), 'USD')
+
+    expect(JSON.parse(localStorage.getItem('efs-preferences') ?? '{}')).toMatchObject({ language: 'en', currency: 'USD' })
+
+    unmount()
+    render(<App />)
+
+    expect(screen.getByLabelText('Language')).toHaveValue('en')
+    expect(screen.getByLabelText('Currency')).toHaveValue('USD')
+    expect(screen.getByRole('heading', { name: 'Financial Freedom Simulator' })).toBeInTheDocument()
+    expect(screen.getByText('Result interpretation')).toBeInTheDocument()
+    expect(screen.getByText('Scenario comparison')).toBeInTheDocument()
+    expect(screen.getByText('Korea cost adjustment')).toBeInTheDocument()
+    expect(screen.getByText('Debt payoff bridge')).toBeInTheDocument()
+    expect(screen.getByText('Retirement income/cashflows')).toBeInTheDocument()
+    expect(screen.getByText('Children/dependent expenses')).toBeInTheDocument()
+    expect(screen.getAllByText('$1,371,428,571').length).toBeGreaterThan(0)
   })
 
 })

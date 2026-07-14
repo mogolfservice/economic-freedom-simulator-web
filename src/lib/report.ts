@@ -12,44 +12,67 @@ export type MarkdownReportInput = {
   insights: string[]
   scenarios: { label: string; timing: string; risk: string }[]
   disclaimer: string
+  labels?: Partial<{
+    adjustAssumptions: string
+    possibleNow: string
+    yearsLater: (years: number, retirementYear: number | null) => string
+    generatedAt: string
+    coreResults: string
+    item: string
+    value: string
+    retirementTiming: string
+    fiAssets: string
+    progress: string
+    monthlyShortfall: string
+    insights: string
+    assumptions: string
+    scenarioComparison: string
+    scenario: string
+    risk: string
+    disclaimer: string
+  }>
 }
 
 export function generateMarkdownReport(input: MarkdownReportInput): string {
+  const labels = {
+    adjustAssumptions: '조건 조정 필요', possibleNow: '지금 가능', yearsLater: (years: number, retirementYear: number | null) => `${years}년 뒤 · ${retirementYear}`, generatedAt: '생성일', coreResults: '핵심 결과', item: '항목', value: '값', retirementTiming: '은퇴 가능 시점', fiAssets: '필요 은퇴자산', progress: '현재 달성률', monthlyShortfall: '은퇴 후 월 부족액', insights: '주요 해석', assumptions: '주요 가정', scenarioComparison: '시나리오 비교', scenario: '시나리오', risk: '리스크', disclaimer: '유의사항',
+    ...input.labels,
+  }
   const timing = input.summary.yearsToFi === null
-    ? '조건 조정 필요'
+    ? labels.adjustAssumptions
     : input.summary.yearsToFi === 0
-      ? '지금 가능'
-      : `${input.summary.yearsToFi}년 뒤 · ${input.summary.retirementYear}`
+      ? labels.possibleNow
+      : labels.yearsLater(input.summary.yearsToFi, input.summary.retirementYear)
 
   return [
     `# ${input.title}`,
     '',
-    `생성일: ${input.generatedAt}`,
+    `${labels.generatedAt}: ${input.generatedAt}`,
     '',
-    '## 핵심 결과',
+    `## ${labels.coreResults}`,
     '',
-    '| 항목 | 값 |',
+    `| ${labels.item} | ${labels.value} |`,
     '|---|---:|',
-    `| 은퇴 가능 시점 | ${timing} |`,
-    `| 필요 은퇴자산 | ${input.summary.fiNumber} |`,
-    `| 현재 달성률 | ${input.summary.progress} |`,
-    `| 은퇴 후 월 부족액 | ${input.summary.monthlyShortfall} |`,
+    `| ${labels.retirementTiming} | ${timing} |`,
+    `| ${labels.fiAssets} | ${input.summary.fiNumber} |`,
+    `| ${labels.progress} | ${input.summary.progress} |`,
+    `| ${labels.monthlyShortfall} | ${input.summary.monthlyShortfall} |`,
     '',
-    '## 주요 해석',
+    `## ${labels.insights}`,
     '',
     ...input.insights.map((item) => `- ${item}`),
     '',
-    '## 주요 가정',
+    `## ${labels.assumptions}`,
     '',
     ...input.assumptions.map((item) => `- ${item}`),
     '',
-    '## 시나리오 비교',
+    `## ${labels.scenarioComparison}`,
     '',
-    '| 시나리오 | 은퇴 시점 | 리스크 |',
+    `| ${labels.scenario} | ${labels.retirementTiming} | ${labels.risk} |`,
     '|---|---:|---|',
     ...input.scenarios.map((scenario) => `| ${scenario.label} | ${scenario.timing} | ${scenario.risk} |`),
     '',
-    '## 유의사항',
+    `## ${labels.disclaimer}`,
     '',
     input.disclaimer,
     '',

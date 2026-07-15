@@ -100,6 +100,25 @@ describe('EconomicFreedomSimulator app', () => {
     expect(screen.getByText('저장된 시나리오')).toBeInTheDocument()
   })
 
+  it('can delete assets and cashflows, and add a new debt row', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    expect(within(screen.getByTestId('asset-list')).getAllByLabelText('자산명')).toHaveLength(4)
+    await user.click(within(screen.getByTestId('asset-list')).getAllByRole('button', { name: '삭제' })[0])
+    expect(within(screen.getByTestId('asset-list')).getAllByLabelText('자산명')).toHaveLength(3)
+    expect(screen.queryByDisplayValue('현금/예금')).not.toBeInTheDocument()
+
+    expect(within(screen.getByTestId('cashflow-list')).getAllByLabelText('소득명')).toHaveLength(1)
+    await user.click(within(screen.getByTestId('cashflow-list')).getAllByRole('button', { name: '삭제' })[0])
+    expect(within(screen.getByTestId('cashflow-list')).queryAllByLabelText('소득명')).toHaveLength(0)
+
+    await user.click(screen.getByRole('button', { name: '대출 추가' }))
+    const liabilitiesPanel = screen.getByTestId('liability-list')
+    expect(within(liabilitiesPanel).getAllByLabelText('대출명')).toHaveLength(2)
+    expect(within(liabilitiesPanel).getByDisplayValue('새 대출')).toBeInTheDocument()
+  })
+
   it('can delete a saved scenario from the saved list and localStorage', async () => {
     const user = userEvent.setup()
     render(<App />)
@@ -107,10 +126,10 @@ describe('EconomicFreedomSimulator app', () => {
     await user.click(screen.getByRole('button', { name: '현재 시나리오 저장' }))
     expect(JSON.parse(localStorage.getItem('efs-scenarios') ?? '[]')).toHaveLength(1)
 
-    await user.click(screen.getByRole('button', { name: '삭제' }))
+    await user.click(within(screen.getByText('저장된 시나리오').closest('.saved-panel') as HTMLElement).getByRole('button', { name: '삭제' }))
 
     expect(JSON.parse(localStorage.getItem('efs-scenarios') ?? '[]')).toHaveLength(0)
-    expect(screen.queryByRole('button', { name: '삭제' })).not.toBeInTheDocument()
+    expect(within(screen.getByText('저장된 시나리오').closest('.saved-panel') as HTMLElement).queryByRole('button', { name: '삭제' })).not.toBeInTheDocument()
     expect(screen.getByText('아직 저장된 시나리오가 없습니다. 현재 시나리오 저장 버튼으로 최대 6개까지 비교할 수 있습니다.')).toBeInTheDocument()
   })
 
@@ -197,8 +216,8 @@ describe('EconomicFreedomSimulator app', () => {
 
     expect(screen.getByText('결과 해석')).toBeInTheDocument()
     expect(screen.getByText('현재 사용가능 FI 자산은 목표의 36.5%입니다.')).toBeInTheDocument()
-    expect(screen.getByText('47~64세: 월 현금흐름 ₩0, 월 필요지출 ₩4,000,000, 월 부족액 ₩4,000,000입니다. 부족분은 자산에서 인출합니다.')).toBeInTheDocument()
-    expect(screen.getByText('65~96세: 월 현금흐름 ₩1,200,000, 월 필요지출 ₩4,000,000, 월 부족액 ₩2,800,000입니다. 부족분은 자산에서 인출합니다.')).toBeInTheDocument()
+    expect(screen.getByText('47~64세: 월 현금흐름 ₩0, 월 필요지출 ₩4,000,000, 월 부족액 ₩4,000,000입니다. 부족분은 자산에서 인출합니다. 구간 자산 변화는 -₩195,167,958, 구간말 자산은 ₩747,136,533입니다.')).toBeInTheDocument()
+    expect(screen.getByText('65~96세: 월 현금흐름 ₩1,200,000, 월 필요지출 ₩4,000,000, 월 부족액 ₩2,800,000입니다. 부족분은 자산에서 인출합니다. 구간 자산 변화는 -₩317,177,803, 구간말 자산은 ₩429,958,730입니다.')).toBeInTheDocument()
     expect(screen.getByText('시나리오 비교')).toBeInTheDocument()
     expect(screen.getByText('보수')).toBeInTheDocument()
     expect(screen.getByText('낙관')).toBeInTheDocument()

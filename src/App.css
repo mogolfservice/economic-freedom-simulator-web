@@ -570,7 +570,8 @@ td:first-child {
   color: var(--muted);
 }
 
-.saved-list .saved-delete {
+.saved-list .saved-delete,
+.row-delete {
   align-self: stretch;
   min-height: auto;
   border-color: rgba(153, 27, 27, 0.2);
@@ -579,7 +580,8 @@ td:first-child {
   box-shadow: none;
 }
 
-.saved-list .saved-delete:hover {
+.saved-list .saved-delete:hover,
+.row-delete:hover {
   background: #fecaca;
 }
 

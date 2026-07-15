@@ -23,10 +23,12 @@ export type PlannerInsightInput = {
 
 export type CashflowSegmentPoint = {
   age: number
+  startBalance?: number
   pensionIncome: number
   childExpense: number
   debtPayment?: number
   withdrawal: number
+  endBalance?: number
 }
 
 export type CashflowSegmentInsightInput = {
@@ -61,6 +63,8 @@ export function buildCashflowSegmentInsights(input: CashflowSegmentInsightInput)
     monthlyNeed: number
     monthlyShortfall: number
     monthlySurplus: number
+    startBalance: number | null
+    endBalance: number | null
   }> = []
 
   for (const point of input.points) {
@@ -79,8 +83,18 @@ export function buildCashflowSegmentInsights(input: CashflowSegmentInsightInput)
       && previous.monthlySurplus === monthlySurplus
     ) {
       previous.endAge = point.age
+      previous.endBalance = Number.isFinite(point.endBalance) ? point.endBalance! : previous.endBalance
     } else {
-      segments.push({ startAge: point.age, endAge: point.age, monthlyCashflow, monthlyNeed, monthlyShortfall, monthlySurplus })
+      segments.push({
+        startAge: point.age,
+        endAge: point.age,
+        monthlyCashflow,
+        monthlyNeed,
+        monthlyShortfall,
+        monthlySurplus,
+        startBalance: Number.isFinite(point.startBalance) ? point.startBalance! : null,
+        endBalance: Number.isFinite(point.endBalance) ? point.endBalance! : null,
+      })
     }
   }
 
@@ -90,29 +104,38 @@ export function buildCashflowSegmentInsights(input: CashflowSegmentInsightInput)
     return startAge === endAge ? `${startAge}세` : `${startAge}~${endAge}세`
   }
 
+  const formatAssetChange = (value: number) => value < 0 ? `-${money(Math.abs(value))}` : money(value)
+  const assetSummary = (segment: { startBalance: number | null; endBalance: number | null }) => {
+    if (segment.startBalance === null || segment.endBalance === null) return ''
+    const change = segment.endBalance - segment.startBalance
+    if (language === 'en') return ` Asset change in this period is ${formatAssetChange(change)}, ending assets are ${money(segment.endBalance)}.`
+    if (language === 'ja') return ` この区間の資産変化は${formatAssetChange(change)}、区間末資産は${money(segment.endBalance)}です。`
+    return ` 구간 자산 변화는 ${formatAssetChange(change)}, 구간말 자산은 ${money(segment.endBalance)}입니다.`
+  }
+
   return segments.slice(0, maxSegments).map((segment) => {
     const tone: PlannerInsightTone = segment.monthlyShortfall > 0 ? 'warn' : 'good'
     if (language === 'en') {
       return {
         tone,
         message: segment.monthlyShortfall > 0
-          ? `${ageLabel(segment.startAge, segment.endAge)}: monthly cashflow ${money(segment.monthlyCashflow)}, monthly need ${money(segment.monthlyNeed)}, monthly shortfall ${money(segment.monthlyShortfall)}. The shortfall needs asset withdrawals.`
-          : `${ageLabel(segment.startAge, segment.endAge)}: monthly cashflow ${money(segment.monthlyCashflow)}, monthly need ${money(segment.monthlyNeed)}, monthly surplus ${money(segment.monthlySurplus)}. Cashflows cover spending in this period.`,
+          ? `${ageLabel(segment.startAge, segment.endAge)}: monthly cashflow ${money(segment.monthlyCashflow)}, monthly need ${money(segment.monthlyNeed)}, monthly shortfall ${money(segment.monthlyShortfall)}. The shortfall needs asset withdrawals.${assetSummary(segment)}`
+          : `${ageLabel(segment.startAge, segment.endAge)}: monthly cashflow ${money(segment.monthlyCashflow)}, monthly need ${money(segment.monthlyNeed)}, monthly surplus ${money(segment.monthlySurplus)}. Cashflows cover spending in this period.${assetSummary(segment)}`,
       }
     }
     if (language === 'ja') {
       return {
         tone,
         message: segment.monthlyShortfall > 0
-          ? `${ageLabel(segment.startAge, segment.endAge)}: 月間キャッシュフロー${money(segment.monthlyCashflow)}、月間必要支出${money(segment.monthlyNeed)}、月間不足額${money(segment.monthlyShortfall)}です。不足分は資産から取り崩します。`
-          : `${ageLabel(segment.startAge, segment.endAge)}: 月間キャッシュフロー${money(segment.monthlyCashflow)}、月間必要支出${money(segment.monthlyNeed)}、月間余剰${money(segment.monthlySurplus)}です。この期間はキャッシュフローだけで支出を賄えます。`,
+          ? `${ageLabel(segment.startAge, segment.endAge)}: 月間キャッシュフロー${money(segment.monthlyCashflow)}、月間必要支出${money(segment.monthlyNeed)}、月間不足額${money(segment.monthlyShortfall)}です。不足分は資産から取り崩します。${assetSummary(segment)}`
+          : `${ageLabel(segment.startAge, segment.endAge)}: 月間キャッシュフロー${money(segment.monthlyCashflow)}、月間必要支出${money(segment.monthlyNeed)}、月間余剰${money(segment.monthlySurplus)}です。この期間はキャッシュフローだけで支出を賄えます。${assetSummary(segment)}`,
       }
     }
     return {
       tone,
       message: segment.monthlyShortfall > 0
-        ? `${ageLabel(segment.startAge, segment.endAge)}: 월 현금흐름 ${money(segment.monthlyCashflow)}, 월 필요지출 ${money(segment.monthlyNeed)}, 월 부족액 ${money(segment.monthlyShortfall)}입니다. 부족분은 자산에서 인출합니다.`
-        : `${ageLabel(segment.startAge, segment.endAge)}: 월 현금흐름 ${money(segment.monthlyCashflow)}, 월 필요지출 ${money(segment.monthlyNeed)}, 월 잉여 ${money(segment.monthlySurplus)}입니다. 이 구간은 현금흐름만으로 지출을 충당합니다.`,
+        ? `${ageLabel(segment.startAge, segment.endAge)}: 월 현금흐름 ${money(segment.monthlyCashflow)}, 월 필요지출 ${money(segment.monthlyNeed)}, 월 부족액 ${money(segment.monthlyShortfall)}입니다. 부족분은 자산에서 인출합니다.${assetSummary(segment)}`
+        : `${ageLabel(segment.startAge, segment.endAge)}: 월 현금흐름 ${money(segment.monthlyCashflow)}, 월 필요지출 ${money(segment.monthlyNeed)}, 월 잉여 ${money(segment.monthlySurplus)}입니다. 이 구간은 현금흐름만으로 지출을 충당합니다.${assetSummary(segment)}`,
     }
   })
 }

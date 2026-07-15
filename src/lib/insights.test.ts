@@ -33,16 +33,16 @@ describe('planner insights', () => {
       monthlyRetirementExpense: 4_000_000,
       formatMoney: (value) => `₩${new Intl.NumberFormat('ko-KR').format(value)}`,
       points: [
-        { age: 50, pensionIncome: 12_000_000, childExpense: 0, debtPayment: 0, withdrawal: 36_000_000 },
-        { age: 51, pensionIncome: 12_000_000, childExpense: 0, debtPayment: 0, withdrawal: 36_000_000 },
-        { age: 52, pensionIncome: 54_000_000, childExpense: 0, debtPayment: 0, withdrawal: 0 },
-        { age: 53, pensionIncome: 54_000_000, childExpense: 0, debtPayment: 0, withdrawal: 0 },
+        { age: 50, startBalance: 500_000_000, pensionIncome: 12_000_000, childExpense: 0, debtPayment: 0, withdrawal: 36_000_000, endBalance: 464_000_000 },
+        { age: 51, startBalance: 464_000_000, pensionIncome: 12_000_000, childExpense: 0, debtPayment: 0, withdrawal: 36_000_000, endBalance: 428_000_000 },
+        { age: 52, startBalance: 428_000_000, pensionIncome: 54_000_000, childExpense: 0, debtPayment: 0, withdrawal: 0, endBalance: 428_000_000 },
+        { age: 53, startBalance: 428_000_000, pensionIncome: 54_000_000, childExpense: 0, debtPayment: 0, withdrawal: 0, endBalance: 428_000_000 },
       ],
     })
 
     expect(insights.map((item) => item.message)).toEqual([
-      '50~51세: 월 현금흐름 ₩1,000,000, 월 필요지출 ₩4,000,000, 월 부족액 ₩3,000,000입니다. 부족분은 자산에서 인출합니다.',
-      '52~53세: 월 현금흐름 ₩4,500,000, 월 필요지출 ₩4,000,000, 월 잉여 ₩500,000입니다. 이 구간은 현금흐름만으로 지출을 충당합니다.',
+      '50~51세: 월 현금흐름 ₩1,000,000, 월 필요지출 ₩4,000,000, 월 부족액 ₩3,000,000입니다. 부족분은 자산에서 인출합니다. 구간 자산 변화는 -₩72,000,000, 구간말 자산은 ₩428,000,000입니다.',
+      '52~53세: 월 현금흐름 ₩4,500,000, 월 필요지출 ₩4,000,000, 월 잉여 ₩500,000입니다. 이 구간은 현금흐름만으로 지출을 충당합니다. 구간 자산 변화는 ₩0, 구간말 자산은 ₩428,000,000입니다.',
     ])
   })
 })

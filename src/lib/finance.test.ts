@@ -155,6 +155,32 @@ describe('finance engine', () => {
     expect(years).toBe(0)
   })
 
+  it('allows immediate retirement with zero savings and zero assets when cashflows fully cover expenses', () => {
+    const years = calculateYearsToRetirementReadiness({
+      currentAge: 45,
+      monthlyContribution: 0,
+      monthlyRetirementExpense: 3_000_000,
+      annualReturn: 0,
+      retirementYears: 40,
+      assets: [],
+      pensions: [{ id: 'rent', name: '임대소득', kind: 'rental', startAge: 45, monthlyAmount: 3_000_000, reliability: 1 }],
+    })
+
+    const readiness = calculateRetirementReadiness({
+      currentAge: 45,
+      retirementAge: 45,
+      retirementYears: 40,
+      monthlyRetirementExpense: 3_000_000,
+      annualReturn: 0,
+      assets: [],
+      pensions: [{ id: 'rent', name: '임대소득', kind: 'rental', startAge: 45, monthlyAmount: 3_000_000, reliability: 1 }],
+    })
+
+    expect(years).toBe(0)
+    expect(readiness.success).toBe(true)
+    expect(readiness.points.every((point) => point.withdrawal === 0 && point.endBalance === 0)).toBe(true)
+  })
+
   it('adds child monthly support, university costs, and one-time events only for active ages', () => {
     const children: ChildExpense[] = [
       {

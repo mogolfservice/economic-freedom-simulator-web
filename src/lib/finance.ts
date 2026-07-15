@@ -343,7 +343,7 @@ export function calculateRetirementReadiness({
     const endBalance = Math.max(0, balance)
     points.push({ age, startBalance, pensionIncome, childExpense, withdrawal, unlockedFromAssets, growth, endBalance })
 
-    if (balance <= 0) {
+    if (balance < 0) {
       depletedAge = age
       balance = 0
       break

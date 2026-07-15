@@ -43,6 +43,30 @@ describe('EconomicFreedomSimulator app', () => {
     expect(screen.getAllByText('₩1,028,571,429').length).toBeGreaterThan(0)
   })
 
+  it('shows retirement is possible now when cashflows cover expenses even without savings or assets', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    await user.clear(screen.getByLabelText('월 저축 가능액'))
+    await user.type(screen.getByLabelText('월 저축 가능액'), '0')
+
+    const assetsPanel = screen.getByTestId('asset-list')
+    const assetValueInputs = within(assetsPanel).getAllByLabelText('평가액')
+    for (const assetInput of assetValueInputs.slice(0, 3)) {
+      await user.clear(assetInput)
+      await user.type(assetInput, '0')
+    }
+
+    await user.clear(screen.getByLabelText('수령 시작 나이'))
+    await user.type(screen.getByLabelText('수령 시작 나이'), '40')
+    await user.clear(screen.getByLabelText('국민연금 월 수령액'))
+    await user.type(screen.getByLabelText('국민연금 월 수령액'), '4,000,000')
+
+    expect(screen.getByText('지금 가능')).toBeInTheDocument()
+    expect(screen.getByText('2026년')).toBeInTheDocument()
+    expect(screen.getAllByText('₩4,000,000').length).toBeGreaterThan(0)
+  })
+
   it('switches language and currency for labels and money formatting', async () => {
     const user = userEvent.setup()
     render(<App />)

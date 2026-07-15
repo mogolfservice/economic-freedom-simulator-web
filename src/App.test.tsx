@@ -76,6 +76,20 @@ describe('EconomicFreedomSimulator app', () => {
     expect(screen.getByText('저장된 시나리오')).toBeInTheDocument()
   })
 
+  it('can delete a saved scenario from the saved list and localStorage', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    await user.click(screen.getByRole('button', { name: '현재 시나리오 저장' }))
+    expect(JSON.parse(localStorage.getItem('efs-scenarios') ?? '[]')).toHaveLength(1)
+
+    await user.click(screen.getByRole('button', { name: '삭제' }))
+
+    expect(JSON.parse(localStorage.getItem('efs-scenarios') ?? '[]')).toHaveLength(0)
+    expect(screen.queryByRole('button', { name: '삭제' })).not.toBeInTheDocument()
+    expect(screen.getByText('아직 저장된 시나리오가 없습니다. 현재 시나리오 저장 버튼으로 최대 6개까지 비교할 수 있습니다.')).toBeInTheDocument()
+  })
+
   it('models pension cashflow and assets locked until age 55', async () => {
     const user = userEvent.setup()
     render(<App />)

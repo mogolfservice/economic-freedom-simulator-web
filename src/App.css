@@ -545,7 +545,14 @@ td:first-child {
   gap: 10px;
 }
 
-.saved-list button {
+.saved-scenario {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.saved-list .saved-load {
   display: grid;
   width: 100%;
   min-height: auto;
@@ -558,9 +565,22 @@ td:first-child {
   box-shadow: none;
 }
 
-.saved-list button span,
-.saved-list button small {
+.saved-list .saved-load span,
+.saved-list .saved-load small {
   color: var(--muted);
+}
+
+.saved-list .saved-delete {
+  align-self: stretch;
+  min-height: auto;
+  border-color: rgba(153, 27, 27, 0.2);
+  background: #fee2e2;
+  color: #991b1b;
+  box-shadow: none;
+}
+
+.saved-list .saved-delete:hover {
+  background: #fecaca;
 }
 
 .disclaimer {

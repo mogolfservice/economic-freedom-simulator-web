@@ -18,7 +18,7 @@ import {
   type PensionCashflow,
   type SensitivityCase,
 } from './lib/finance'
-import { buildPlannerInsights } from './lib/insights'
+import { buildCashflowSegmentInsights, buildPlannerInsights } from './lib/insights'
 import { calculateKoreaCostAdjustment, type KoreaCostAssumptions } from './lib/koreaCosts'
 import { generateMarkdownReport } from './lib/report'
 import { createDecisionScenarios } from './lib/scenarios'
@@ -273,7 +273,10 @@ function App() {
   const savingsRate = calculateSavingsRate(state.monthlyIncome, state.monthlyContribution)
   const statusTone = progress >= 1 ? 'good' : yearsToFi !== null && yearsToFi <= 10 ? 'warn' : 'default'
   const expenseReductionImpact = calculateFiNumber(adjustedMonthlyRetirementExpense, state.safeWithdrawalRate) - calculateFiNumber(adjustedMonthlyRetirementExpense * 0.9, state.safeWithdrawalRate)
-  const insights = useMemo(() => buildPlannerInsights({ progress, yearsToFi, unlockedFiAssets: access.unlockedFiAssets, fiNumber, lockedFiAssets: access.lockedFiAssets, nextUnlockAge: access.nextUnlockAge, monthlyRetirementExpense: adjustedMonthlyRetirementExpense, totalMonthlyRetirementIncome, expenseReductionImpact, language, formatMoney }), [access.lockedFiAssets, access.nextUnlockAge, access.unlockedFiAssets, adjustedMonthlyRetirementExpense, expenseReductionImpact, fiNumber, formatMoney, language, progress, totalMonthlyRetirementIncome, yearsToFi])
+  const insights = useMemo(() => [
+    ...buildPlannerInsights({ progress, yearsToFi, unlockedFiAssets: access.unlockedFiAssets, fiNumber, lockedFiAssets: access.lockedFiAssets, nextUnlockAge: access.nextUnlockAge, monthlyRetirementExpense: adjustedMonthlyRetirementExpense, totalMonthlyRetirementIncome, expenseReductionImpact, language, formatMoney }),
+    ...buildCashflowSegmentInsights({ monthlyRetirementExpense: adjustedMonthlyRetirementExpense, points: readiness.points, language, formatMoney, maxSegments: 8 }),
+  ], [access.lockedFiAssets, access.nextUnlockAge, access.unlockedFiAssets, adjustedMonthlyRetirementExpense, expenseReductionImpact, fiNumber, formatMoney, language, progress, readiness.points, totalMonthlyRetirementIncome, yearsToFi])
   const decisionScenarios = useMemo(() => createDecisionScenarios({ currentAge: state.currentAge, monthlyContribution: state.monthlyContribution, monthlyRetirementExpense: adjustedMonthlyRetirementExpense, annualReturn: realReturn, safeWithdrawalRate: state.safeWithdrawalRate, startYear: START_YEAR, retirementYears: state.retirementYears, assets: state.assets, pensions: state.pensions, children: state.children, liabilities: state.liabilities }), [adjustedMonthlyRetirementExpense, realReturn, state.assets, state.children, state.currentAge, state.liabilities, state.monthlyContribution, state.pensions, state.retirementYears, state.safeWithdrawalRate])
 
   const updateNumber = (field: keyof PlannerState, value: number) => setState((current) => ({ ...current, [field]: value }))

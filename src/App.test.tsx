@@ -197,6 +197,8 @@ describe('EconomicFreedomSimulator app', () => {
 
     expect(screen.getByText('결과 해석')).toBeInTheDocument()
     expect(screen.getByText('현재 사용가능 FI 자산은 목표의 36.5%입니다.')).toBeInTheDocument()
+    expect(screen.getByText('47~64세: 월 현금흐름 ₩0, 월 필요지출 ₩4,000,000, 월 부족액 ₩4,000,000입니다. 부족분은 자산에서 인출합니다.')).toBeInTheDocument()
+    expect(screen.getByText('65~96세: 월 현금흐름 ₩1,200,000, 월 필요지출 ₩4,000,000, 월 부족액 ₩2,800,000입니다. 부족분은 자산에서 인출합니다.')).toBeInTheDocument()
     expect(screen.getByText('시나리오 비교')).toBeInTheDocument()
     expect(screen.getByText('보수')).toBeInTheDocument()
     expect(screen.getByText('낙관')).toBeInTheDocument()

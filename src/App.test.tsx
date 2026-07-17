@@ -115,6 +115,11 @@ describe('EconomicFreedomSimulator app', () => {
     await user.type(assetValueInputs.at(-1)!, '100,000,000')
 
     expect(screen.getByText('53%')).toBeInTheDocument()
+    expect(screen.getByText('총 자산')).toBeInTheDocument()
+    expect(screen.getByText('은퇴 계산 포함 자산')).toBeInTheDocument()
+    expect(screen.getAllByText('₩1,380,000,000').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('₩680,000,000').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('₩600,000,000').length).toBeGreaterThan(0)
 
     await user.click(screen.getByRole('button', { name: '현재 시나리오 저장' }))
     expect(JSON.parse(localStorage.getItem('efs-scenarios') ?? '[]')).toHaveLength(1)

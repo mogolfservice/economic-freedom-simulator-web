@@ -470,6 +470,14 @@ label {
   background: rgba(255, 255, 255, 0.55);
 }
 
+.assets-panel .asset-row {
+  grid-template-columns: minmax(180px, 1.1fr) minmax(180px, 1fr) minmax(145px, 0.75fr) minmax(150px, auto) max-content 40px;
+}
+
+.asset-totals {
+  margin-top: 14px;
+}
+
 .asset-row.expense-row {
   grid-template-columns: minmax(72px, 0.4fr) minmax(145px, 0.9fr) minmax(132px, 0.72fr) minmax(148px, 0.8fr) minmax(170px, 1fr) 40px;
 }
@@ -683,7 +691,8 @@ td:first-child {
   }
 
   .liabilities-panel .asset-row,
-  .pension-panel .asset-row {
+  .pension-panel .asset-row,
+  .assets-panel .asset-row {
     grid-template-columns: 1fr;
   }
 

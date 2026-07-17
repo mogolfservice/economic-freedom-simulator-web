@@ -208,7 +208,38 @@ function MoneyInput({ label, value, onValueChange }: { label: string; value: num
   )
 }
 
-function readSavedScenarios(): SavedScenario[] { try { return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]') as SavedScenario[] } catch { return [] } }
+function normalizePlannerState(savedState: Partial<PlannerState> | undefined | null): PlannerState {
+  const source = savedState ?? {}
+  return {
+    ...defaultState,
+    ...source,
+    livingExpenseBands: Array.isArray(source.livingExpenseBands) ? source.livingExpenseBands : defaultState.livingExpenseBands,
+    assets: Array.isArray(source.assets) ? source.assets : defaultState.assets,
+    liabilities: Array.isArray(source.liabilities) ? source.liabilities : defaultState.liabilities,
+    pensions: Array.isArray(source.pensions) ? source.pensions : defaultState.pensions,
+    children: Array.isArray(source.children) ? source.children : defaultState.children,
+  }
+}
+
+function normalizeSavedScenario(scenario: Partial<SavedScenario> | undefined | null): SavedScenario | null {
+  if (!scenario?.id || !scenario.state) return null
+  return {
+    id: scenario.id,
+    savedAt: scenario.savedAt ?? '',
+    yearsToFi: scenario.yearsToFi ?? null,
+    retirementYear: scenario.retirementYear ?? null,
+    fiNumber: scenario.fiNumber ?? 0,
+    progress: scenario.progress ?? 0,
+    state: normalizePlannerState(scenario.state),
+  }
+}
+
+function readSavedScenarios(): SavedScenario[] {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]') as Partial<SavedScenario>[]
+    return Array.isArray(parsed) ? parsed.map(normalizeSavedScenario).filter((scenario): scenario is SavedScenario => scenario !== null) : []
+  } catch { return [] }
+}
 function readPreferences(): { language: Language; currency: CurrencyCode } {
   try {
     const parsed = JSON.parse(localStorage.getItem(PREFERENCES_STORAGE_KEY) ?? '{}') as Partial<{ language: Language; currency: CurrencyCode }>
@@ -421,7 +452,7 @@ function App() {
       <section className="panel children-panel"><div className="section-title row-title"><div><p className="eyebrow">{u.dependents}</p><h2>{u.childrenExpenses}</h2></div><button type="button" onClick={addChild}>{u.addChild}</button></div><div className="asset-list" data-testid="children-list">{state.children.map((child) => { const event = child.lumpSumEvents?.[0] ?? { id: `event-${child.id}`, label: u.lumpSum, childAge: 30, amount: 0 }; return <article className="asset-row child-row" key={child.id}><strong>{child.name}</strong><label>{u.childName}<input aria-label={u.childName} value={child.name} onChange={(event) => updateChild(child.id, { name: event.target.value })} /></label><label>{u.childCurrentAge}<input aria-label={u.childCurrentAge} type="number" value={child.currentAge} onChange={(event) => updateChild(child.id, { currentAge: parseNumber(event.target.value) })} /></label><MoneyInput label={u.monthlyCareCost} value={child.monthlyCareCost} onValueChange={(value) => updateChild(child.id, { monthlyCareCost: value })} /><MoneyInput label={u.monthlyEducationCost} value={child.monthlyEducationCost} onValueChange={(value) => updateChild(child.id, { monthlyEducationCost: value })} /><label>{u.supportUntilAge}<input aria-label={u.supportUntilAge} type="number" value={child.supportUntilAge} onChange={(event) => updateChild(child.id, { supportUntilAge: parseNumber(event.target.value) })} /></label><label>{u.universityStartAge}<input aria-label={u.universityStartAge} type="number" value={child.universityStartAge ?? ''} onChange={(event) => updateChild(child.id, { universityStartAge: event.target.value === '' ? undefined : parseNumber(event.target.value) })} /></label><label>{u.universityEndAge}<input aria-label={u.universityEndAge} type="number" value={child.universityEndAge ?? ''} onChange={(event) => updateChild(child.id, { universityEndAge: event.target.value === '' ? undefined : parseNumber(event.target.value) })} /></label><MoneyInput label={u.annualUniversityCost} value={child.annualUniversityCost ?? 0} onValueChange={(value) => updateChild(child.id, { annualUniversityCost: value })} /><label>{u.lumpSumAge}<input aria-label={u.lumpSumAge} type="number" value={event.childAge} onChange={(evt) => updateChild(child.id, { lumpSumEvents: [{ ...event, childAge: parseNumber(evt.target.value) }] })} /></label><MoneyInput label={u.lumpSumAmount} value={event.amount} onValueChange={(value) => updateChild(child.id, { lumpSumEvents: [{ ...event, amount: value }] })} /></article> })}</div><div className="assumption-strip"><span>{u.currentAnnualChildExpense}<strong>{formatMoney(currentAnnualChildExpense)}</strong></span><span>{u.totalAnnualUniversityCost}<strong>{formatMoney(annualUniversityCost)}</strong></span><span>{u.childCount}<strong>{u.peopleSuffix(state.children.length)}</strong></span></div><p className="chart-note">{u.childrenNote}</p></section>
 
       <section className="panel"><div className="section-title"><p className="eyebrow">{u.sensitivityEyebrow}</p><h2>{t.sensitivity}</h2></div><SensitivityTable cases={sensitivity} t={t} formatMoney={formatMoney} /></section>
-      <section className="bottom-grid"><div className="panel advice-panel"><div className="section-title"><p className="eyebrow">{t.action}</p><h2>{t.advice}</h2></div><ul><li>{t.adviceExpense(formatMoney(fiNumber - calculateFiNumber(adjustedMonthlyRetirementExpense * 0.9, state.safeWithdrawalRate)))}</li><li>{t.adviceSaving(sensitivity.find((item) => item.label === '저축 +20%')?.yearsToFi ?? null)}</li><li>{t.adviceReturn(formatPercent(realReturn))}</li></ul></div><div className="panel saved-panel"><div className="section-title"><p className="eyebrow">{t.saved}</p><h2>{t.savedScenarios}</h2></div>{savedScenarios.length === 0 ? <p className="empty-state">{t.emptySaved}</p> : <div className="saved-list">{savedScenarios.map((scenario) => <article className="saved-scenario" key={scenario.id}><button className="saved-load" type="button" onClick={() => setState(scenario.state)}><strong>{scenario.yearsToFi === null ? t.unavailable : t.yearsLater(scenario.yearsToFi)}</strong><span>{formatMoney(scenario.fiNumber)} · {formatPercent(scenario.progress)}</span><small>{scenario.savedAt}</small></button><button className="saved-delete" type="button" onClick={() => deleteSavedScenario(scenario.id)}>{u.deleteSavedScenario}</button></article>)}</div>}</div></section>
+      <section className="bottom-grid"><div className="panel advice-panel"><div className="section-title"><p className="eyebrow">{t.action}</p><h2>{t.advice}</h2></div><ul><li>{t.adviceExpense(formatMoney(fiNumber - calculateFiNumber(adjustedMonthlyRetirementExpense * 0.9, state.safeWithdrawalRate)))}</li><li>{t.adviceSaving(sensitivity.find((item) => item.label === '저축 +20%')?.yearsToFi ?? null)}</li><li>{t.adviceReturn(formatPercent(realReturn))}</li></ul></div><div className="panel saved-panel"><div className="section-title"><p className="eyebrow">{t.saved}</p><h2>{t.savedScenarios}</h2></div>{savedScenarios.length === 0 ? <p className="empty-state">{t.emptySaved}</p> : <div className="saved-list">{savedScenarios.map((scenario) => <article className="saved-scenario" key={scenario.id}><button className="saved-load" type="button" onClick={() => setState(normalizePlannerState(scenario.state))}><strong>{scenario.yearsToFi === null ? t.unavailable : t.yearsLater(scenario.yearsToFi)}</strong><span>{formatMoney(scenario.fiNumber)} · {formatPercent(scenario.progress)}</span><small>{scenario.savedAt}</small></button><button className="saved-delete" type="button" onClick={() => deleteSavedScenario(scenario.id)}>{u.deleteSavedScenario}</button></article>)}</div>}</div></section>
       <footer className="disclaimer">{t.disclaimer}</footer>
     </main>
   )

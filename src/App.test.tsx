@@ -121,6 +121,40 @@ describe('EconomicFreedomSimulator app', () => {
     expect(screen.getByText('저장된 시나리오')).toBeInTheDocument()
   })
 
+  it('loads legacy saved scenarios that do not have age-based living expense bands', async () => {
+    const user = userEvent.setup()
+    localStorage.setItem('efs-scenarios', JSON.stringify([
+      {
+        id: 'legacy-scenario',
+        savedAt: 'legacy',
+        yearsToFi: 8,
+        retirementYear: 2034,
+        fiNumber: 900_000_000,
+        progress: 0.5,
+        state: {
+          currentAge: 45,
+          monthlyIncome: 1_234_567,
+          monthlyContribution: 1_000_000,
+          monthlyRetirementExpense: 2_000_000,
+          nominalReturn: 0.05,
+          inflationRate: 0.02,
+          safeWithdrawalRate: 0.035,
+          retirementYears: 50,
+          assets: [{ id: 'legacy-cash', name: '기존 현금', type: 'cash', value: 300_000_000, liquidity: 'high', includeForFi: true }],
+        },
+      },
+    ]))
+
+    render(<App />)
+
+    const savedPanel = screen.getByText('저장된 시나리오').closest('.saved-panel') as HTMLElement
+    await user.click(within(savedPanel).getByRole('button', { name: /8년 뒤/ }))
+
+    expect(screen.getByLabelText('월 소득')).toHaveValue('1,234,567')
+    expect(within(screen.getByTestId('living-expense-list')).getAllByLabelText('구분명')).toHaveLength(3)
+    expect(within(screen.getByTestId('asset-list')).getByDisplayValue('기존 현금')).toBeInTheDocument()
+  })
+
   it('can delete assets and cashflows, and add a new debt row', async () => {
     const user = userEvent.setup()
     render(<App />)

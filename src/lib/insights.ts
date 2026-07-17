@@ -24,6 +24,7 @@ export type PlannerInsightInput = {
 export type CashflowSegmentPoint = {
   age: number
   startBalance?: number
+  monthlyLivingExpense?: number
   pensionIncome: number
   childExpense: number
   debtPayment?: number
@@ -69,7 +70,8 @@ export function buildCashflowSegmentInsights(input: CashflowSegmentInsightInput)
 
   for (const point of input.points) {
     const monthlyCashflow = Math.round(Math.max(0, point.pensionIncome) / 12)
-    const monthlyNeed = Math.round(monthlyBaseExpense + Math.max(0, point.childExpense) / 12 + Math.max(0, point.debtPayment ?? 0) / 12)
+    const livingExpense = point.monthlyLivingExpense ?? monthlyBaseExpense
+    const monthlyNeed = Math.round(livingExpense + Math.max(0, point.childExpense) / 12 + Math.max(0, point.debtPayment ?? 0) / 12)
     const monthlyShortfall = Math.max(0, monthlyNeed - monthlyCashflow)
     const monthlySurplus = Math.max(0, monthlyCashflow - monthlyNeed)
     const previous = segments.at(-1)

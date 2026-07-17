@@ -48,6 +48,14 @@ export type ChildExpense = {
   lumpSumEvents?: ChildExpenseEvent[]
 }
 
+export type LivingExpenseBand = {
+  id: string
+  name: string
+  startAge: number
+  endAge: number
+  monthlyExpense: number
+}
+
 export type Liability = {
   id: string
   name: string
@@ -112,6 +120,7 @@ export type UnlockedFiAssetsResult = {
 export type RetirementReadinessPoint = {
   age: number
   startBalance: number
+  monthlyLivingExpense: number
   pensionIncome: number
   childExpense: number
   debtPayment: number
@@ -133,6 +142,7 @@ export type SimulationInput = {
   currentFiAssets: number
   monthlyContribution: number
   monthlyRetirementExpense: number
+  livingExpenseBands?: LivingExpenseBand[]
   annualReturn: number
   safeWithdrawalRate: number
   startYear: number
@@ -148,6 +158,7 @@ export type RetirementTimingInput = {
   currentAge: number
   monthlyContribution: number
   monthlyRetirementExpense: number
+  livingExpenseBands?: LivingExpenseBand[]
   annualReturn: number
   retirementYears: number
   assets: Asset[]
@@ -282,6 +293,34 @@ function calculateAnnualPensionIncome(pensions: PensionCashflow[], age: number):
     .reduce((sum, pension) => sum + clampMoney(pension.monthlyAmount) * 12 * Math.max(0, Math.min(1, pension.reliability)), 0)
 }
 
+export function calculateMonthlyLivingExpenseAtAge({
+  age,
+  monthlyRetirementExpense,
+  livingExpenseBands = [],
+}: {
+  age: number
+  monthlyRetirementExpense: number
+  livingExpenseBands?: LivingExpenseBand[]
+}): number {
+  const sortedBands = livingExpenseBands
+    .filter((band) => Number.isFinite(band.startAge) && Number.isFinite(band.endAge))
+    .sort((a, b) => a.startAge - b.startAge)
+  const activeBand = sortedBands.find((band) => band.startAge <= age && age <= band.endAge)
+  if (activeBand) return clampMoney(activeBand.monthlyExpense)
+
+  const previousBand = sortedBands.filter((band) => band.endAge < age).at(-1)
+  if (previousBand) return clampMoney(previousBand.monthlyExpense)
+
+  const nextBand = sortedBands.find((band) => band.startAge > age)
+  if (nextBand) return clampMoney(nextBand.monthlyExpense)
+
+  return clampMoney(monthlyRetirementExpense)
+}
+
+export function scaleLivingExpenseBands(livingExpenseBands: LivingExpenseBand[] = [], factor: number): LivingExpenseBand[] {
+  return livingExpenseBands.map((band) => ({ ...band, monthlyExpense: Math.round(clampMoney(band.monthlyExpense) * factor) }))
+}
+
 function calculateAnnualChildExpense(children: ChildExpense[], parentAge: number, currentParentAge: number): number {
   return children.reduce((sum, child) => {
     const childAge = child.currentAge + (parentAge - currentParentAge)
@@ -301,6 +340,7 @@ export function calculateRetirementReadiness({
   retirementAge,
   retirementYears,
   monthlyRetirementExpense,
+  livingExpenseBands = [],
   annualReturn,
   assets,
   pensions,
@@ -311,6 +351,7 @@ export function calculateRetirementReadiness({
   retirementAge: number
   retirementYears: number
   monthlyRetirementExpense: number
+  livingExpenseBands?: LivingExpenseBand[]
   annualReturn: number
   assets: Asset[]
   pensions: PensionCashflow[]
@@ -333,7 +374,8 @@ export function calculateRetirementReadiness({
     const startBalance = balance
     const unlockedFromAssets = lockedByAge.get(age) ?? 0
     balance += unlockedFromAssets
-    const annualExpense = clampMoney(monthlyRetirementExpense) * 12
+    const monthlyLivingExpense = calculateMonthlyLivingExpenseAtAge({ age, monthlyRetirementExpense, livingExpenseBands })
+    const annualExpense = monthlyLivingExpense * 12
     const pensionIncome = calculateAnnualPensionIncome(pensions, age)
     const childExpense = calculateAnnualChildExpense(children, age, currentAge)
     const debtPayment = calculateMonthlyDebtPaymentAtAge(liabilities, age) * 12
@@ -342,7 +384,7 @@ export function calculateRetirementReadiness({
     const growth = Math.max(0, balance) * annualReturn
     balance += growth
     const endBalance = Math.max(0, balance)
-    points.push({ age, startBalance, pensionIncome, childExpense, debtPayment, withdrawal, unlockedFromAssets, growth, endBalance })
+    points.push({ age, startBalance, monthlyLivingExpense, pensionIncome, childExpense, debtPayment, withdrawal, unlockedFromAssets, growth, endBalance })
 
     if (balance < 0) {
       depletedAge = age
@@ -398,6 +440,7 @@ export function calculateYearsToRetirementReadiness({
   currentAge,
   monthlyContribution,
   monthlyRetirementExpense,
+  livingExpenseBands = [],
   annualReturn,
   retirementYears,
   assets,
@@ -416,6 +459,7 @@ export function calculateYearsToRetirementReadiness({
       retirementAge,
       retirementYears,
       monthlyRetirementExpense,
+      livingExpenseBands,
       annualReturn,
       assets: projectedAssets,
       pensions,
@@ -444,11 +488,13 @@ export function getSensitivityMatrix(input: SimulationInput): SensitivityCase[] 
     const fiNumber = calculateFiNumber(input.monthlyRetirementExpense * scenario.expenseFactor, input.safeWithdrawalRate)
     const annualReturn = input.annualReturn + scenario.returnDelta
     const monthlyRetirementExpense = input.monthlyRetirementExpense * scenario.expenseFactor
+    const livingExpenseBands = scaleLivingExpenseBands(input.livingExpenseBands, scenario.expenseFactor)
     const yearsToFi = input.assets && input.pensions && input.currentAge !== undefined
       ? calculateYearsToRetirementReadiness({
         currentAge: input.currentAge,
         monthlyContribution: input.monthlyContribution * scenario.savingFactor,
         monthlyRetirementExpense,
+        livingExpenseBands,
         annualReturn,
         retirementYears: input.retirementYears,
         assets: input.assets,
@@ -471,3 +517,4 @@ export function getSensitivityMatrix(input: SimulationInput): SensitivityCase[] 
     }
   })
 }
+

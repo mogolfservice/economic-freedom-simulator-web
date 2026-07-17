@@ -2,9 +2,11 @@ import {
   calculateFiNumber,
   calculateRetirementReadiness,
   calculateYearsToRetirementReadiness,
+  scaleLivingExpenseBands,
   type Asset,
   type ChildExpense,
   type Liability,
+  type LivingExpenseBand,
   type PensionCashflow,
 } from './finance'
 
@@ -12,6 +14,7 @@ export type DecisionScenarioInput = {
   currentAge: number
   monthlyContribution: number
   monthlyRetirementExpense: number
+  livingExpenseBands?: LivingExpenseBand[]
   annualReturn: number
   safeWithdrawalRate: number
   startYear: number
@@ -27,6 +30,7 @@ export type DecisionScenario = {
   description: string
   monthlyContribution: number
   monthlyRetirementExpense: number
+  livingExpenseBands?: LivingExpenseBand[]
   annualReturn: number
   fiNumber: number
   yearsToFi: number | null
@@ -57,6 +61,7 @@ export function createDecisionScenarios(input: DecisionScenarioInput): DecisionS
   return definitions.map((definition) => {
     const monthlyContribution = Math.round(input.monthlyContribution * definition.savingFactor)
     const monthlyRetirementExpense = Math.round(input.monthlyRetirementExpense * definition.expenseFactor)
+    const livingExpenseBands = scaleLivingExpenseBands(input.livingExpenseBands, definition.expenseFactor)
     const annualReturn = input.annualReturn + definition.returnDelta
     const pensions = clonePensions(input.pensions, definition.reliabilityFactor)
     const fiNumber = calculateFiNumber(monthlyRetirementExpense, input.safeWithdrawalRate)
@@ -65,6 +70,7 @@ export function createDecisionScenarios(input: DecisionScenarioInput): DecisionS
       currentAge: input.currentAge,
       monthlyContribution,
       monthlyRetirementExpense,
+      livingExpenseBands,
       annualReturn,
       retirementYears: input.retirementYears,
       assets: input.assets,
@@ -78,6 +84,7 @@ export function createDecisionScenarios(input: DecisionScenarioInput): DecisionS
       retirementAge,
       retirementYears: input.retirementYears,
       monthlyRetirementExpense,
+      livingExpenseBands,
       annualReturn,
       assets: input.assets,
       pensions,
@@ -99,3 +106,4 @@ export function createDecisionScenarios(input: DecisionScenarioInput): DecisionS
     }
   })
 }
+

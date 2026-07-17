@@ -20,20 +20,21 @@ describe('EconomicFreedomSimulator app', () => {
     render(<App />)
 
     expect(screen.getByRole('heading', { name: '경제적자유시뮬레이터' })).toBeInTheDocument()
-    expect(screen.getByText('7년 뒤')).toBeInTheDocument()
-    expect(screen.getByText('2033년')).toBeInTheDocument()
-    expect(screen.getAllByText('₩1,371,428,571').length).toBeGreaterThan(0)
-    expect(screen.getByText('36.5%')).toBeInTheDocument()
+    expect(screen.getByText('3년 뒤')).toBeInTheDocument()
+    expect(screen.getByText('2029년')).toBeInTheDocument()
+    expect(screen.getAllByText('₩1,131,428,571').length).toBeGreaterThan(0)
+    expect(screen.getByText('44.2%')).toBeInTheDocument()
     expect(screen.getByText('민감도 분석')).toBeInTheDocument()
     expect(screen.getByLabelText('월 소득')).toHaveValue('8,000,000')
-    expect(screen.getByLabelText('은퇴 후 월 생활비')).toHaveValue('4,000,000')
+    expect(screen.getByLabelText('은퇴 후 월 생활비')).toHaveValue('2,770,000')
+    expect(within(screen.getByTestId('living-expense-list')).getAllByLabelText('필요생활비')[0]).toHaveValue('3,300,000')
   })
 
   it('updates the FI result when comma-formatted monthly retirement expense is reduced', async () => {
     const user = userEvent.setup()
     render(<App />)
 
-    const expenseInput = screen.getByLabelText('은퇴 후 월 생활비')
+    const expenseInput = within(screen.getByTestId('living-expense-list')).getAllByLabelText('필요생활비')[0]
     await user.clear(expenseInput)
     await user.type(expenseInput, '3,000,000')
 
@@ -67,6 +68,24 @@ describe('EconomicFreedomSimulator app', () => {
     expect(screen.getAllByText('₩4,000,000').length).toBeGreaterThan(0)
   })
 
+
+
+  it('can edit, add, and delete age-based living expense bands', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    const expensePanel = screen.getByTestId('living-expense-list')
+    expect(within(expensePanel).getAllByLabelText('구분명')).toHaveLength(3)
+    expect(within(expensePanel).getByDisplayValue('초기')).toBeInTheDocument()
+    expect(within(expensePanel).getAllByLabelText('필요생활비')[0]).toHaveValue('3,300,000')
+
+    await user.click(screen.getByRole('button', { name: '생활비 구간 추가' }))
+    expect(within(screen.getByTestId('living-expense-list')).getAllByLabelText('구분명')).toHaveLength(4)
+
+    await user.click(within(screen.getByTestId('living-expense-list')).getAllByRole('button', { name: '삭제' }).at(-1)!)
+    expect(within(screen.getByTestId('living-expense-list')).getAllByLabelText('구분명')).toHaveLength(3)
+  })
+
   it('switches language and currency for labels and money formatting', async () => {
     const user = userEvent.setup()
     render(<App />)
@@ -76,7 +95,7 @@ describe('EconomicFreedomSimulator app', () => {
     expect(screen.getByText('Sensitivity Analysis')).toBeInTheDocument()
 
     await user.selectOptions(screen.getByLabelText('Currency'), 'USD')
-    expect(screen.getAllByText('$1,371,428,571').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('$1,131,428,571').length).toBeGreaterThan(0)
     expect(screen.getByLabelText('Monthly income')).toHaveValue('8,000,000')
   })
 
@@ -93,7 +112,7 @@ describe('EconomicFreedomSimulator app', () => {
     await user.clear(assetValueInputs.at(-1)!)
     await user.type(assetValueInputs.at(-1)!, '100,000,000')
 
-    expect(screen.getByText('43.8%')).toBeInTheDocument()
+    expect(screen.getByText('53%')).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: '현재 시나리오 저장' }))
     expect(JSON.parse(localStorage.getItem('efs-scenarios') ?? '[]')).toHaveLength(1)
@@ -148,7 +167,7 @@ describe('EconomicFreedomSimulator app', () => {
     expect(screen.getByText('총 월 소득')).toBeInTheDocument()
     expect(screen.getByText('₩1,500,000')).toBeInTheDocument()
     expect(screen.getByText('월 부족액')).toBeInTheDocument()
-    expect(screen.getByText('₩2,500,000')).toBeInTheDocument()
+    expect(screen.getByText('₩1,800,000')).toBeInTheDocument()
   })
 
   it('can add multiple retirement income cashflows including rental income with an end age', async () => {
@@ -171,8 +190,8 @@ describe('EconomicFreedomSimulator app', () => {
     await user.type(endAgeInputs.at(-1)!, '75')
 
     expect(screen.getByText('오피스텔 월세')).toBeInTheDocument()
-    expect(screen.getByDisplayValue('75')).toBeInTheDocument()
-    expect(screen.getAllByText('₩2,000,000').length).toBeGreaterThanOrEqual(2)
+    expect(within(cashflowPanel).getAllByDisplayValue('75').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('₩2,000,000').length).toBeGreaterThanOrEqual(1)
   })
 
   it('can add child expense with support age, university cost, and lump-sum event', async () => {
@@ -215,9 +234,9 @@ describe('EconomicFreedomSimulator app', () => {
     render(<App />)
 
     expect(screen.getByText('결과 해석')).toBeInTheDocument()
-    expect(screen.getByText('현재 사용가능 FI 자산은 목표의 36.5%입니다.')).toBeInTheDocument()
-    expect(screen.getByText('47~64세: 월 현금흐름 ₩0, 월 필요지출 ₩4,000,000, 월 부족액 ₩4,000,000입니다. 부족분은 자산에서 인출합니다. 구간 자산 변화는 -₩195,167,958, 구간말 자산은 ₩747,136,533입니다.')).toBeInTheDocument()
-    expect(screen.getByText('65~96세: 월 현금흐름 ₩1,200,000, 월 필요지출 ₩4,000,000, 월 부족액 ₩2,800,000입니다. 부족분은 자산에서 인출합니다. 구간 자산 변화는 -₩317,177,803, 구간말 자산은 ₩429,958,730입니다.')).toBeInTheDocument()
+    expect(screen.getByText('현재 사용가능 FI 자산은 목표의 44.2%입니다.')).toBeInTheDocument()
+    expect(screen.getByText('43~64세: 월 현금흐름 ₩0, 월 필요지출 ₩3,300,000, 월 부족액 ₩3,300,000입니다. 부족분은 자산에서 인출합니다. 구간 자산 변화는 -₩367,614,492, 구간말 자산은 ₩307,195,108입니다.')).toBeInTheDocument()
+    expect(screen.getByText('65~74세: 월 현금흐름 ₩1,200,000, 월 필요지출 ₩2,770,000, 월 부족액 ₩1,570,000입니다. 부족분은 자산에서 인출합니다. 구간 자산 변화는 -₩87,714,166, 구간말 자산은 ₩219,480,942입니다.')).toBeInTheDocument()
     expect(screen.getByText('시나리오 비교')).toBeInTheDocument()
     expect(screen.getByText('보수')).toBeInTheDocument()
     expect(screen.getByText('낙관')).toBeInTheDocument()
@@ -257,7 +276,8 @@ describe('EconomicFreedomSimulator app', () => {
     expect(screen.getByText('Debt payoff bridge')).toBeInTheDocument()
     expect(screen.getByText('Retirement income/cashflows')).toBeInTheDocument()
     expect(screen.getByText('Children/dependent expenses')).toBeInTheDocument()
-    expect(screen.getAllByText('$1,371,428,571').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('$1,131,428,571').length).toBeGreaterThan(0)
   })
 
 })
+

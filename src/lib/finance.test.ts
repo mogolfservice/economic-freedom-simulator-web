@@ -3,6 +3,7 @@ import {
   calculateFiNumber,
   calculateMonthlyDebtPaymentAtAge,
   calculateNetWorth,
+  calculateRetirementHorizonYears,
   calculateRetirementReadiness,
   calculateYearsToRetirementReadiness,
   calculateSavingsRate,
@@ -108,6 +109,30 @@ describe('finance engine', () => {
     expect(result.lockedAtRetirement).toBe(240_000_000)
     expect(result.points.find((point) => point.age === 55)?.unlockedFromAssets).toBe(240_000_000)
     expect(result.points.find((point) => point.age === 65)?.pensionIncome).toBe(14_400_000)
+  })
+
+  it('extends retirement readiness through the configured living-expense end age', () => {
+    const livingExpenseBands = [
+      { id: 'early', name: '초기', startAge: 40, endAge: 64, monthlyExpense: 3_300_000 },
+      { id: 'middle', name: '중기', startAge: 65, endAge: 74, monthlyExpense: 2_770_000 },
+      { id: 'late', name: '후기', startAge: 75, endAge: 100, monthlyExpense: 2_200_000 },
+    ]
+
+    expect(calculateRetirementHorizonYears({ retirementAge: 43, retirementYears: 50, livingExpenseBands })).toBe(58)
+
+    const result = calculateRetirementReadiness({
+      currentAge: 40,
+      retirementAge: 43,
+      retirementYears: 50,
+      livingExpenseBands,
+      monthlyRetirementExpense: 2_770_000,
+      annualReturn: 0,
+      assets: [{ id: 'cash', name: '현금', type: 'cash', value: 3_000_000_000, liquidity: 'high', includeForFi: true }],
+      pensions: [],
+    })
+
+    expect(result.points.at(0)?.age).toBe(43)
+    expect(result.points.at(-1)?.age).toBe(100)
   })
 
   it('combines multiple retirement income cashflows and stops temporary income after end age', () => {

@@ -25,6 +25,8 @@ describe('EconomicFreedomSimulator app', () => {
     expect(screen.getAllByText('₩1,131,428,571').length).toBeGreaterThan(0)
     expect(screen.getByText('44.2%')).toBeInTheDocument()
     expect(screen.getByText('민감도 분석')).toBeInTheDocument()
+    expect(screen.getByText('연금·잠긴자산 반영 58년 통과')).toBeInTheDocument()
+    expect(screen.getByText(/75~100세: 월 현금흐름/)).toBeInTheDocument()
     expect(screen.getByLabelText('월 소득')).toHaveValue('8,000,000')
     expect(screen.getByLabelText('은퇴 후 월 생활비')).toHaveValue('2,770,000')
     expect(within(screen.getByTestId('living-expense-list')).getAllByLabelText('필요생활비')[0]).toHaveValue('3,300,000')

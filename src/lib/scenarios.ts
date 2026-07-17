@@ -19,6 +19,7 @@ export type DecisionScenarioInput = {
   safeWithdrawalRate: number
   startYear: number
   retirementYears: number
+  retirementEndAge?: number
   assets: Asset[]
   pensions: PensionCashflow[]
   children?: ChildExpense[]
@@ -73,6 +74,7 @@ export function createDecisionScenarios(input: DecisionScenarioInput): DecisionS
       livingExpenseBands,
       annualReturn,
       retirementYears: input.retirementYears,
+      retirementEndAge: input.retirementEndAge,
       assets: input.assets,
       pensions,
       children: input.children ?? [],
@@ -83,6 +85,7 @@ export function createDecisionScenarios(input: DecisionScenarioInput): DecisionS
       currentAge: input.currentAge,
       retirementAge,
       retirementYears: input.retirementYears,
+      retirementEndAge: input.retirementEndAge,
       monthlyRetirementExpense,
       livingExpenseBands,
       annualReturn,

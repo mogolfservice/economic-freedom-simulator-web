@@ -471,7 +471,15 @@ label {
 }
 
 .asset-row.expense-row {
-  grid-template-columns: minmax(76px, 0.45fr) minmax(160px, 1fr) repeat(2, minmax(110px, 0.65fr)) minmax(160px, 0.9fr) 40px;
+  grid-template-columns: minmax(72px, 0.4fr) minmax(145px, 0.9fr) minmax(132px, 0.72fr) minmax(148px, 0.8fr) minmax(170px, 1fr) 40px;
+}
+
+.liabilities-panel .asset-row {
+  grid-template-columns: minmax(140px, 0.7fr) repeat(3, minmax(170px, 1fr)) minmax(190px, 1.05fr) minmax(170px, 0.9fr);
+}
+
+.pension-panel .asset-row {
+  grid-template-columns: minmax(90px, 0.5fr) repeat(3, minmax(145px, 1fr)) minmax(170px, 1.05fr) repeat(2, minmax(150px, 1fr)) 40px;
 }
 
 .expense-row > strong {
@@ -672,6 +680,11 @@ td:first-child {
   .expense-row {
     grid-template-columns: 1fr 1fr;
     align-items: end;
+  }
+
+  .liabilities-panel .asset-row,
+  .pension-panel .asset-row {
+    grid-template-columns: 1fr;
   }
 
   .expense-row > strong {

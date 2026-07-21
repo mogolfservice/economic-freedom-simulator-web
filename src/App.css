@@ -255,6 +255,7 @@ h2 {
 }
 
 .panel {
+  min-width: 0;
   border-radius: var(--radius);
   padding: 24px;
 }
@@ -649,11 +650,22 @@ td:first-child {
   .workspace,
   .bottom-grid,
   .decision-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .metrics-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .asset-row.expense-row,
+  .liabilities-panel .asset-row,
+  .pension-panel .asset-row {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  }
+
+  .asset-row.expense-row .row-delete,
+  .pension-panel .asset-row .row-delete {
+    justify-self: end;
   }
 }
 
@@ -677,8 +689,19 @@ td:first-child {
   .metrics-grid,
   .form-grid,
   .assumption-strip,
-  .asset-row {
-    grid-template-columns: 1fr;
+  .asset-summary,
+  .asset-row,
+  .asset-row.expense-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .row-title {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .row-title button {
+    width: 100%;
   }
 
   .asset-row {
@@ -686,8 +709,7 @@ td:first-child {
   }
 
   .expense-row {
-    grid-template-columns: 1fr 1fr;
-    align-items: end;
+    align-items: stretch;
   }
 
   .liabilities-panel .asset-row,
@@ -701,7 +723,8 @@ td:first-child {
   }
 
   .expense-row .row-delete {
-    grid-column: 2;
+    grid-column: auto;
+    justify-self: end;
   }
 
   .liquidity {
